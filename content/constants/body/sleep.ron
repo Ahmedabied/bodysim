@@ -1,0 +1,18 @@
+// BODY · sleep (two-process model). Each constant carries its own source.
+[
+  (name: "wake_grace_s", value: 600.0, unit: "s", range: Some((0.0, 1800.0)), varies_with: "interruption", source: "engineering recovery interval: let a recently woken person resolve an interruption before overdue pressure puts them back to sleep", status: Tunable, note: None),
+  (name: "tau_wake_h", value: 18.2, unit: "h", range: None, varies_with: "-", source: "Process S wake time constant (sleepR borbely.R; PMC12176636)", status: Verified, note: None),
+  (name: "tau_sleep_h", value: 4.2, unit: "h", range: None, varies_with: "-", source: "Process S sleep time constant", status: Verified, note: None),
+  (name: "mu_wake", value: 1.0, unit: "1", range: None, varies_with: "-", source: "asymptote awake ≈ 1.0", status: Verified, note: None),
+  (name: "mu_sleep", value: 0.0, unit: "1", range: None, varies_with: "-", source: "asymptote asleep 0", status: Verified, note: None),
+  (name: "h_on", value: 0.67, unit: "1", range: Some((0.6, 0.75)), varies_with: "individual, sleep debt", source: "upper threshold H0+ 0.6-0.75", status: Verified, note: None),
+  (name: "h_off", value: 0.13, unit: "1", range: Some((0.09, 0.17)), varies_with: "individual", source: "lower threshold H0− 0.09-0.17", status: Verified, note: None),
+  (name: "c_amplitude", value: 0.1, unit: "1", range: None, varies_with: "-", source: "circadian threshold modulation a ≈ 0.1 (reference implementation default; UNVERIFIED vs the 1984 paper)", status: Unverified, note: None),
+  (name: "caffeine_threshold_raise", value: 0.15, unit: "1", range: Some((0.05, 0.3)), varies_with: "individual", source: "no published mapping from adenosine occupancy to the two-process threshold; a choice that lets a large evening dose delay onset by ~2 h", status: Tunable, note: None),
+  (name: "sleepy_noticeable", value: 0.45, unit: "1", range: None, varies_with: "-", source: "bands on Process S; not published", status: Tunable, note: None),
+  (name: "sleepy_pressing", value: 0.58, unit: "1", range: None, varies_with: "-", source: "as above; Urgent = the onset threshold itself", status: Tunable, note: None),
+  (name: "arousal_db_deep", value: 75.0, unit: "dB SPL", range: Some((60.0, 104.0)), varies_with: "stage, individual", source: "acoustic arousal test range 30-104 dB; REM threshold 80 dB in one clinical study", status: Tunable, note: None),
+  (name: "arousal_db_light", value: 55.0, unit: "dB SPL", range: Some((40.0, 70.0)), varies_with: "stage", source: "as above; N1/N2 lower than deep sleep", status: Tunable, note: None),
+  (name: "deep_first_h", value: 2.0, unit: "h", range: None, varies_with: "-", source: "sleep cycles 90-110 min, deep sleep concentrated in the first cycles", status: Tunable, note: None),
+  (name: "resume_margin", value: 0.1, unit: "1", range: None, varies_with: "-", source: "not in the two-process model: a night interruption (nocturia) ends in a return to sleep while S sits well above the offset threshold; the margin is a choice", status: Tunable, note: None),
+]

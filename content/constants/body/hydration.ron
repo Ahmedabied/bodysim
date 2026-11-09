@@ -1,0 +1,140 @@
+// BODY · hydration & bladder. Sources: the published papers cited in each constant's `source`.
+[
+  // --- thirst / AVP: two linear functions of plasma osmolality (Thompson & Baylis 1987, n=10) ---
+  (name: "thirst_threshold_mosm", value: 281.0, unit: "mOsm/kg", range: Some((281.0, 285.23)),
+   varies_with: "individual, menstrual cycle, reset osmostat",
+   source: "Thirst(cm) = 0.3*(Posm-281), r=+0.92 (pubmed 3791867); pooled 12-study review gives 285.23+-1.29 (PMC5763530)",
+   status: Contested("281 single study vs 285.23 pooled; the slice uses the single-study pair so threshold and slope come from one fit"), note: None),
+
+  (name: "thirst_slope_cm_per_mosm", value: 0.3, unit: "cm VAS/(mOsm/kg)", range: Some((0.3, 0.54)),
+   varies_with: "individual",
+   source: "same fit as the threshold above; pooled review gives 0.54+-0.07",
+   status: Contested("0.3 single study vs 0.54 pooled"), note: None),
+
+  (name: "avp_threshold_mosm", value: 285.0, unit: "mOsm/kg", range: Some((284.3, 285.0)),
+   varies_with: "individual",
+   source: "plasma AVP (pmol/L) = 0.4*(Posm-285), r=+0.96 (pubmed 3791867)",
+   status: Verified, note: Some("AVP switches on a few mOsm/kg BEFORE conscious thirst - the kidney conserves before you feel it")),
+
+  (name: "avp_slope_pmol_per_mosm", value: 0.4, unit: "pmol/L per mOsm/kg", range: None,
+   varies_with: "individual",
+   source: " (pubmed 3791867)",
+   status: Verified, note: None),
+
+  (name: "avp_saturating_pmol", value: 5.0, unit: "pmol/L", range: None,
+   varies_with: "individual",
+   source: "no published saturation point found; the slice maps AVP 0 -> max free-water clearance and AVP >= this -> the obligatory floor",
+   status: Tunable, note: Some("the shape (linear between the two published bounds) is an assumption; where it saturates is not known")),
+
+  (name: "osmolality_rest_mosm", value: 283.0, unit: "mOsm/kg", range: Some((275.0, 290.0)),
+   varies_with: "hydration state, individual",
+   source: "normal resting plasma osmolality ~275-290 mOsm/kg; the system runs close to its own switch point at rest",
+   status: Tunable, note: Some("chosen inside the published normal range, 2 mOsm/kg above the 281 thirst threshold of the same study, so a rested body is barely thirsty (the slice showed 287 makes her permanently 'pressing')")),
+
+  // --- water balance ---
+  (name: "insensible_skin_ml_per_day_at_22c", value: 381.0, unit: "mL/day", range: Some((363.0, 399.0)),
+   varies_with: "ambient temperature (526 at 27 degC, 695 at 30 degC), BSA 1.75 m2",
+   source: "skin insensible loss @22 degC 381+-18 mL/day",
+   status: Verified, note: None),
+
+  (name: "insensible_skin_ml_per_day_at_30c", value: 695.0, unit: "mL/day", range: Some((660.0, 730.0)),
+   varies_with: "ambient temperature",
+   source: "skin insensible loss @30 degC 695+-35 mL/day",
+   status: Verified, note: None),
+
+  (name: "insensible_resp_ml_per_day", value: 149.0, unit: "mL/day", range: None,
+   varies_with: "ventilation, inspired humidity",
+   source: "temperate measured total insensible 321 mL/day = 172 skin + 149 respiratory",
+   status: Verified, note: None),
+
+  (name: "metabolic_water_ml_per_day", value: 246.0, unit: "mL/day", range: None,
+   varies_with: "diet, energy expenditure",
+   source: "metabolic water, measured median 246 mL/day",
+   status: Verified, note: None),
+
+  (name: "urine_min_ml_per_day", value: 500.0, unit: "mL/day", range: None,
+   varies_with: "dietary solute load, renal function, age",
+   source: "obligatory minimum urine output ~500 mL/day (pubmed 20356431)",
+   status: Verified, note: None),
+
+  (name: "urine_typical_ml_per_day", value: 1295.0, unit: "mL/day", range: Some((1000.0, 2000.0)),
+   varies_with: "intake, climate, activity",
+   source: "typical measured urine output 1,295 mL/day, young adults at ~2.2 L/day intake [9]",
+   status: Verified, note: Some("the anchor at the AVP threshold: what a normally-hydrated kidney does")),
+
+  (name: "osm_full_dilution_mosm", value: 275.0, unit: "mOsm/kg", range: Some((270.0, 280.0)),
+   varies_with: "individual",
+   source: "bottom of the normal resting range (275-290); where AVP is fully suppressed and free-water clearance is maximal",
+   status: Tunable, note: Some("the anchor point is a choice inside the published normal range")),
+
+  (name: "urine_max_ml_per_hour", value: 700.0, unit: "mL/h", range: Some((500.0, 1000.0)),
+   varies_with: "renal function",
+   source: "max free-water excretion 500-1000 mL/h (PMC4470181)",
+   status: Verified, note: None),
+
+  (name: "nocturnal_gfr_multiplier", value: 0.70, unit: "1", range: Some((0.55, 0.85)),
+   varies_with: "age (rhythm blunts), enuresis",
+   source: "GFR daytime peak 122+-22 vs nighttime trough 86+-12 mL/min => 86/122 ~ 0.70 (pubmed 2667855)",
+   status: Verified, note: Some("REMOVED on the wake event, never left latched, so it cannot ratchet")),
+
+  (name: "sweat_water_l_per_l_evap", value: 1.0, unit: "L/L", range: None, varies_with: "-",
+   source: "definition: evaporated sweat is body water leaving",
+   status: Verified, note: None),
+
+  // --- osmolality dynamics ---
+  (name: "osm_per_l_deficit", value: 8.5, unit: "mOsm/kg per L", range: Some((6.0, 12.0)),
+   varies_with: "TBW, solute load",
+   source: "derived: total solute is conserved, so Posm scales as TBW0/TBW; for TBW 33 L at 287 mOsm/kg a 1 L deficit gives 287*(33/32)-287 = 9.0. The slice linearises that slope",
+   status: Tunable, note: Some("shape is conservation of solute; the linearisation point is a choice")),
+
+  // --- bladder ---
+  (name: "bladder_first_sensation_ml", value: 112.0, unit: "mL", range: Some((64.0, 160.0)),
+   varies_with: "fill rate, sex, age",
+   source: "first sensation of filling 112+-48 mL, n=89 women, standard-rate cystometry (PMC13324833)",
+   status: Contested("CONFLICT-A in says ~120-150 mL"), note: None),
+
+  (name: "bladder_first_desire_ml", value: 184.0, unit: "mL", range: Some((113.0, 255.0)),
+   varies_with: "fill rate, sex, age",
+   source: "first desire to void 184+-71 mL (PMC13324833)",
+   status: Contested("CONFLICT-A: says ~300 mL"), note: None),
+
+  (name: "bladder_strong_desire_ml", value: 289.0, unit: "mL", range: Some((195.0, 383.0)),
+   varies_with: "fill rate, sex, age",
+   source: "strong desire to void 289+-94 mL (PMC13324833)",
+   status: Contested("CONFLICT-A"), note: None),
+
+  (name: "bladder_capacity_ml", value: 370.0, unit: "mL", range: Some((268.0, 580.0)),
+   varies_with: "fill method (fast artificial 370+-102; natural diary median 500; artificial 580)",
+   source: "maximum cystometric capacity",
+   status: Contested("three published values by fill method; the slice takes the fast-fill mean"), note: None),
+
+  (name: "bladder_compliance_ml_per_cmh2o", value: 30.0, unit: "mL/cmH2O", range: Some((20.0, 60.0)),
+   varies_with: "pathology (<10-20 = hypocompliant)",
+   source: "normal bladder compliance >20 mL/cmH2O (pubmed 26676285)",
+   status: Verified, note: None),
+
+  (name: "bladder_p0_cmh2o", value: 3.0, unit: "cmH2O", range: Some((0.0, 10.0)),
+   varies_with: "individual",
+   source: "'a few cmH2O at empty'; detrusor pressure at capacity 10.9+-19.0",
+   status: Tunable, note: None),
+
+  (name: "thirst_band_noticeable_cm", value: 0.5, unit: "cm VAS", range: Some((0.2, 1.0)),
+   varies_with: "individual",
+   source: "no published VAS→awareness mapping; 0.5 cm is ~1.7 mOsm/kg above threshold on the 0.3 slope",
+   status: Tunable, note: None),
+
+  (name: "thirst_band_pressing_cm", value: 1.5, unit: "cm VAS", range: Some((1.0, 3.0)),
+   varies_with: "individual",
+   source: "no published mapping from the 0-10 cm thirst VAS to felt urgency bands; 1.5 cm = 5 mOsm/kg above threshold on the 0.3 slope",
+   status: Tunable, note: None),
+
+  (name: "thirst_band_urgent_cm", value: 3.5, unit: "cm VAS", range: Some((2.5, 6.0)),
+   varies_with: "individual",
+   source: "as above; 3.5 cm = ~12 mOsm/kg above threshold (~2% body-water deficit, where cognitive performance is commonly reported to degrade)",
+   status: Tunable, note: None),
+
+  (name: "void_residual_ml", value: 10.0, unit: "mL", range: Some((0.0, 50.0)),
+   varies_with: "individual, pathology",
+   source: "no published post-void residual figure used for healthy adults",
+   status: Tunable, note: None),
+]

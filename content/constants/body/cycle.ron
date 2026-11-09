@@ -1,0 +1,6 @@
+// BODY · menstrual cycle. Sources:
+[
+  (name: "menses_d", value: 5.0, unit: "days", range: Some((3.0, 7.0)), varies_with: "individual", source: "clinical convention (3 to 7 days); the cycle phase lengths here do not fix the bleed length", status: Tunable, note: None),
+  (name: "ovulatory_window_d", value: 2.0, unit: "days", range: None, varies_with: "-", source: "the LH surge window around ovulation; luteal 12.4 d (7-17) defines where it sits", status: Tunable, note: None),
+  (name: "bbt_shift_c", value: 0.4, unit: "degC", range: Some((0.3, 0.7)), varies_with: "individual", source: "BBT shift luteal vs follicular +0.3 to +0.7 °C [61]; means 36.5 → 36.8", status: Verified, note: None),
+]

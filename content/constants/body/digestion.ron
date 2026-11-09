@@ -1,0 +1,22 @@
+// BODY · digestion & hunger. Each constant carries its own source.
+[
+  (name: "k_liquid_per_min", value: 0.028, unit: "1/min", range: Some((0.013, 0.058)), varies_with: "calories, sex (women slower)", source: "liquid t½ 12-53 min (commonly 14-30): k = ln2/25 min", status: Verified, note: None),
+  (name: "beta_liquid", value: 1.0, unit: "1", range: None, varies_with: "-", source: "liquids: β near 1, minimal lag", status: Verified, note: None),
+  (name: "k_solid_per_min", value: 0.0115, unit: "1/min", range: Some((0.004, 0.012)), varies_with: "meal, sex (women 92 min vs men 60)", source: "solid t½ 58-162 min; women 92.4 min: with β=2 the half-emptying time is ln(1/(1−√0.5))/k ≈ 1.23/k → k = 0.0133 for 92 min", status: Verified, note: None),
+  (name: "beta_solid", value: 2.0, unit: "1", range: Some((1.5, 3.0)), varies_with: "meal density", source: "small β = lag phase; solid egg meal lag 31 ± 8 min", status: Tunable, note: None),
+  (name: "ghrelin_baseline", value: 1.0, unit: "1 (normalised)", range: None, varies_with: "-", source: "sham-feeding pre 917-933 → post 455-511 pg/mL; normalised to 1", status: Verified, note: None),
+  (name: "ghrelin_peak", value: 2.0, unit: "1 (normalised)", range: None, varies_with: "-", source: "preprandial rise ~2× (pubmed 11473029)", status: Verified, note: None),
+  (name: "ghrelin_tau_rise_s", value: 3600.0, unit: "s", range: None, varies_with: "-", source: "rises before each habitual meal; the rise's time constant is not published", status: Tunable, note: None),
+  (name: "ghrelin_tau_fall_s", value: 1800.0, unit: "s", range: None, varies_with: "-", source: "falls to trough within ~1 h after eating", status: Verified, note: None),
+  (name: "anticipation_lead_s", value: 3600.0, unit: "s", range: None, varies_with: "-", source: "'anticipatory bump timed to the habitual mealtime'; the lead is a choice", status: Tunable, note: None),
+  (name: "fullness_weight", value: 1.5, unit: "1", range: None, varies_with: "-", source: " hunger formula weights are unpublished", status: Tunable, note: None),
+  (name: "gastric_max_ml", value: 1000.0, unit: "mL", range: Some((933.0, 1067.0)), varies_with: "obesity (1763 extreme)", source: "max tolerated volume 1000 ± 67 mL (pubmed 4036492)", status: Verified, note: None),
+  (name: "hunger_noticeable", value: 0.6, unit: "1", range: None, varies_with: "-", source: "bands on the derived hunger drive; not published", status: Tunable, note: None),
+  (name: "hunger_pressing", value: 1.1, unit: "1", range: None, varies_with: "-", source: "as above", status: Tunable, note: None),
+  (name: "hunger_urgent", value: 1.7, unit: "1", range: None, varies_with: "-", source: "as above", status: Tunable, note: None),
+  (name: "colon_first_ml", value: 35.0, unit: "mL", range: Some((30.0, 40.0)), varies_with: "sex", source: "rectal first sensation 30 (F) / 40 (M) mL (PMC9274462)", status: Verified, note: None),
+  (name: "colon_urge_ml", value: 100.0, unit: "mL", range: Some((90.0, 105.0)), varies_with: "-", source: "desire to defecate 90-105 mL", status: Verified, note: None),
+  (name: "colon_max_ml", value: 150.0, unit: "mL", range: Some((140.0, 160.0)), varies_with: "-", source: "maximum tolerable 140-160 mL", status: Verified, note: None),
+  (name: "colon_fill_ml_per_s", value: 0.00174, unit: "mL/s", range: None, varies_with: "diet, transit", source: "derived: ~150 mL/day stool arriving over a 24 h colonic transit", status: Tunable, note: None),
+  (name: "gastric_check_s", value: 600.0, unit: "s", range: None, varies_with: "-", source: "the absorption episode's resolution while a meal empties (a bounded stepped episode); 10 min resolves the 30 min point of a glucose tolerance test", status: Tunable, note: None),
+]

@@ -1,0 +1,14 @@
+// BODY · cardio-autonomic. Each constant carries its own source.
+[
+  (name: "hr_intrinsic_bpm", value: 100.0, unit: "bpm", range: Some((100.0, 115.0)), varies_with: "age (139 at age 1, 102 at 16)", source: "intrinsic HR ≈ 100-115 bpm (PMC487411)", status: Verified, note: None),
+  (name: "k_vagal_bpm", value: 45.0, unit: "bpm", range: None, varies_with: "-", source: "derived: resting 60-70 bpm from an intrinsic 100 needs ~30-40 bpm of vagal withdrawal at rest tone 0.7-0.9", status: Tunable, note: None),
+  (name: "k_symp_bpm", value: 90.0, unit: "bpm", range: None, varies_with: "-", source: "derived: HRmax 208 − 0.7·age ≈ 194 at 20 (Tanaka,) at symp 1 and vagal 0", status: Tunable, note: None),
+  (name: "tau_vagal_s", value: 1.0, unit: "s", range: Some((0.12, 1.0)), varies_with: "-", source: "vagal branch time constant ~1 s or less (lag 0.12 s in rat)", status: Verified, note: None),
+  (name: "tau_symp_s", value: 65.0, unit: "s", range: Some((9.0, 121.0)), varies_with: "fitness", source: "HRR sympathetic-withdrawal time constant 65 ± 56 s (pmid 15219511)", status: Verified, note: None),
+  (name: "vagal_rest", value: 0.8, unit: "1", range: None, varies_with: "fitness", source: "a rest tone giving ~64 bpm with the gains above", status: Tunable, note: None),
+  (name: "symp_rest", value: 0.05, unit: "1", range: None, varies_with: "-", source: "as above", status: Tunable, note: None),
+  (name: "symp_per_met", value: 0.12, unit: "1/met", range: None, varies_with: "-", source: "a linear rise of sympathetic tone with activity; not published in this form", status: Tunable, note: None),
+  (name: "racing_noticeable_bpm", value: 95.0, unit: "bpm", range: None, varies_with: "individual", source: "interoceptive band; not published", status: Tunable, note: None),
+  (name: "racing_pressing_bpm", value: 120.0, unit: "bpm", range: None, varies_with: "individual", source: "as above", status: Tunable, note: None),
+  (name: "racing_urgent_bpm", value: 150.0, unit: "bpm", range: None, varies_with: "individual", source: "as above", status: Tunable, note: None),
+]

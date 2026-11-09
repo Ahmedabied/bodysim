@@ -1,0 +1,10 @@
+// BODY · circadian. Sources:
+[
+  (name: "mel_mesor_pg_ml", value: 34.4, unit: "pg/mL", range: None, varies_with: "individual", source: "melatonin acrophase/mesor/amplitude, one cohort: 02:27 / 34.4 / 58.7 [40]", status: Verified, note: None),
+  (name: "mel_amplitude_pg_ml", value: 58.7, unit: "pg/mL", range: None, varies_with: "individual", source: " [40]", status: Verified, note: None),
+  (name: "mel_acrophase_after_peak_h", value: 10.45, unit: "h", range: None, varies_with: "chronotype",
+   source: "derived: melatonin acrophase 02:27 for a 16:00 Process-C peak (CBTmin ≈ 04:00, thresholds reproduce onset ~23:00 / wake ~07:00)", status: Tunable, note: None),
+  (name: "mel_suppression_ed50_lux", value: 106.0, unit: "lux", range: Some((92.7, 119.3)), varies_with: "spectrum, individual", source: "melatonin suppression ED50 106 ± 13.3 lux (PMC2270041)", status: Verified, note: None),
+  (name: "mel_suppression_steepness", value: 3.55, unit: "1", range: Some((1.97, 5.13)), varies_with: "-", source: "logistic steepness 3.55 ± 1.58", status: Verified, note: None),
+  (name: "mel_suppression_max", value: 0.936, unit: "1", range: None, varies_with: "-", source: "suppression asymptote 93.6 %", status: Verified, note: None),
+]

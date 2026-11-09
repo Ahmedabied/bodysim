@@ -1,0 +1,24 @@
+[package]
+name = "bodysim-core"
+version.workspace = true
+edition.workspace = true
+description = "Discrete-event simulation substrate: world, components, rules, relations, replayable log."
+
+[lib]
+name = "bodysim_core"
+
+[dependencies]
+serde.workspace = true
+postcard.workspace = true
+blake3.workspace = true
+crc32fast.workspace = true
+indexmap.workspace = true
+rand_chacha.workspace = true
+ron.workspace = true
+erased-serde.workspace = true
+
+[dev-dependencies]
+serde.workspace = true
+
+[lints]
+workspace = true

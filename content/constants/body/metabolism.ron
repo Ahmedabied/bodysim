@@ -1,0 +1,14 @@
+// BODY · energy. Each constant carries its own source.
+[
+  (name: "msj_w", value: 9.99, unit: "kcal/(day kg)", range: None, varies_with: "-", source: "Mifflin-St Jeor (pubmed 2305711)", status: Verified, note: None),
+  (name: "msj_h", value: 6.25, unit: "kcal/(day cm)", range: None, varies_with: "-", source: "as above", status: Verified, note: None),
+  (name: "msj_a", value: 4.92, unit: "kcal/(day yr)", range: None, varies_with: "-", source: "as above", status: Verified, note: None),
+  (name: "msj_f", value: -161.0, unit: "kcal/day", range: None, varies_with: "-", source: "as above, women", status: Verified, note: None),
+  (name: "msj_m", value: 5.0, unit: "kcal/day", range: None, varies_with: "-", source: "as above, men", status: Verified, note: None),
+  (name: "kcal_to_kj", value: 4.184, unit: "kJ/kcal", range: None, varies_with: "-", source: "definition", status: Verified, note: None),
+  (name: "carb_share_rest", value: 0.45, unit: "1", range: Some((0.3, 0.6)), varies_with: "diet, fasting state", source: "RQ at rest on a mixed diet ≈ 0.80-0.85 → roughly 40-50 % of oxidation from carbohydrate", status: Unverified, note: None),
+  (name: "glycogen_kj_per_g", value: 17.6, unit: "kJ/g", range: None, varies_with: "-", source: "carbohydrate energy density 17.6 MJ/kg (Chow & Hall)", status: Verified, note: None),
+  (name: "glycogen_cap_g", value: 600.0, unit: "g", range: Some((500.0, 700.0)), varies_with: "muscle mass, training", source: "~500 g muscle + ~100 g liver (fed)", status: Verified, note: None),
+  (name: "weight_tau_days", value: 365.0, unit: "days", range: None, varies_with: "body size", source: "body-weight response half-life ≈ 1 year (τ = half-life/ln2 ≈ 1.44 y; the formula here uses the half-life as the scale)", status: Unverified, note: Some("half-life vs time constant: a half-life of about 1 y and a 95 %-life of about 3 y mean a τ of about 1 y")),
+  (name: "kj_per_day_per_kg", value: 100.0, unit: "kJ/day per kg", range: None, varies_with: "-", source: "every sustained 100 kJ/day ≈ 1 kg eventual change (Hall 2011 Lancet)", status: Verified, note: None),
+]

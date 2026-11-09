@@ -1,0 +1,10 @@
+// BODY · pharmacokinetics, caffeine. Each constant carries its own source.
+[
+  (name: "caffeine_ka_per_min", value: 0.064, unit: "1/min", range: None, varies_with: "individual (CV 50 %)", source: "ka 0.064 /min, fitted, 24 subjects [14]", status: Verified, note: None),
+  (name: "caffeine_half_life_h", value: 5.3, unit: "h", range: Some((3.0, 7.0)), varies_with: "OCP use (11.8 h), smoking (−30-50 %)", source: "fitted half-life 5.3 h [14]", status: Verified, note: None),
+  (name: "caffeine_vd_l", value: 38.6, unit: "L", range: None, varies_with: "body size (CV 20 %)", source: "V/F 38.6 L [14]", status: Verified, note: None),
+  (name: "caffeine_f", value: 1.0, unit: "1", range: None, varies_with: "-", source: "apparent parameters already include F", status: Verified, note: None),
+  (name: "caffeine_ec50_mg_l", value: 3.0, unit: "mg/L", range: Some((1.0, 28.7)), varies_with: "-",
+   source: "A1-receptor IC50 148 ± 15.4 µM = 28.7 mg/L in tissue; in-vivo alertness effects appear at ordinary plasma levels of 1-5 mg/L; the old house used 6.0",
+   status: Contested("tissue IC50 28.7 mg/L vs behavioural effect at 1-5 mg/L; the old house's 6.0 mg/L"), note: None),
+]

@@ -1,0 +1,25 @@
+[workspace]
+resolver = "2"
+members = ["crates/core", "crates/body"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+
+[workspace.dependencies]
+bodysim-core = { path = "crates/core" }
+serde = { version = "1", features = ["derive"] }
+postcard = { version = "1.1", features = ["use-std"] }
+blake3 = "1.8"
+crc32fast = "1.5"
+indexmap = { version = "2", features = ["serde"] }
+rand_chacha = "0.10"
+ron = "0.12"
+erased-serde = "0.4"
+insta = "1"
+proptest = "1"
+
+[workspace.lints.clippy]
+disallowed_methods = "deny"
+disallowed_types = "deny"

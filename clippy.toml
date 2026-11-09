@@ -1,0 +1,12 @@
+# Determinism rules, enforced by the compiler: no wall clock, no unseeded randomness, no unordered maps.
+disallowed-methods = [
+  { path = "std::time::Instant::now",    reason = "no wall clock inside the simulation: time comes from the event log" },
+  { path = "std::time::SystemTime::now", reason = "no wall clock inside the simulation" },
+  { path = "rand::thread_rng",           reason = "randomness only from seeded, keyed streams" },
+  { path = "rand::random",               reason = "randomness only from seeded, keyed streams" },
+]
+disallowed-types = [
+  { path = "std::collections::HashMap", reason = "iteration order must be stable: use IndexMap or BTreeMap" },
+  { path = "std::collections::HashSet", reason = "iteration order must be stable: use IndexMap or BTreeMap" },
+  { path = "rand::rngs::StdRng",        reason = "a named, portable RNG algorithm only" },
+]

@@ -1,0 +1,18 @@
+[package]
+name = "bodysim"
+version.workspace = true
+edition.workspace = true
+description = "Human physiology as closed-form models advanced on band-crossing events."
+
+[lib]
+name = "bodysim"
+
+[dependencies]
+bodysim-core.workspace = true
+serde.workspace = true
+
+[dev-dependencies]
+insta.workspace = true
+
+[lints]
+workspace = true

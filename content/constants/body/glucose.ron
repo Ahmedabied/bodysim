@@ -1,0 +1,11 @@
+// BODY · glucose (Bergman minimal model, linearised). Each constant carries its own source.
+[
+  (name: "g_basal_mg_dl", value: 85.0, unit: "mg/dL", range: Some((70.0, 100.0)), varies_with: "individual", source: "normal fasting plasma glucose is below 100 mg/dL (ADA diagnostic criteria); 70 mg/dL is the usual low alert level", status: Verified, note: None),
+  (name: "i_basal_uu_ml", value: 7.6, unit: "uU/mL", range: None, varies_with: "individual", source: "typical healthy fasting insulin is single digits to low teens; this value is not tied to a checked source", status: Unverified, note: None),
+  (name: "sg_per_min", value: 0.03, unit: "1/min", range: Some((0.026, 0.036)), varies_with: "protocol", source: "Bergman Sg (glucose effectiveness, p1) 0.026-0.036 /min (pubmed 9575818)", status: Verified, note: None),
+  (name: "mg_dl_per_g_carb", value: 1.75, unit: "mg/dL per g", range: Some((0.0, 7.7)), varies_with: "insulin sensitivity",
+   source: "fitted to a 75 g oral glucose load: Hirakawa et al. 2020, BMJ Open Diabetes Res Care 8:e001156 (Hisayama Study, 2,162 adults aged 40 to 79 without diabetes), Table 1. Fasting 92.7 and 2 h 107.9 mg/dL in the quartile with 30 min glucose at or below 135 mg/dL, 96.0 and 117.1 in the next (136 to 157). The table prints mmol/L, but the values are mg/dL. With 10 min absorption steps this gives +16 at 2 h and 30 min glucose between the two quartiles",
+   status: Tunable, note: Some("the effective rise per gram absorbed, net of first-pass uptake and insulin action, which this linear model does not separate. All of 1 g in about 130 dL of glucose space would be 7.7 mg/dL, the upper end of the range")),
+  (name: "insulin_tau_s", value: 1800.0, unit: "s", range: None, varies_with: "-", source: "order of magnitude only; not tied to a checked source", status: Unverified, note: None),
+  (name: "insulin_gain_uu_per_mg_dl", value: 1.7, unit: "uU/mL per mg/dL", range: None, varies_with: "-", source: "chosen so a +40 mg/dL excursion gives a peak near 74 uU/mL; not tied to a checked source", status: Tunable, note: None),
+]

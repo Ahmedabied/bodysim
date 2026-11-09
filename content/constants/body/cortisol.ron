@@ -1,0 +1,11 @@
+// BODY · cortisol. Each constant carries its own source.
+[
+  (name: "mesor_nmol", value: 400.0, unit: "nmol/L serum", range: None, varies_with: "individual", source: "serum AM 459.6 ± 235.2, PM 340.5 ± 207.5 → mesor ~400", status: Unverified, note: None),
+  (name: "amplitude_nmol", value: 120.0, unit: "nmol/L", range: None, varies_with: "individual", source: "as above - AM/PM difference ~120", status: Unverified, note: None),
+  (name: "acrophase_h", value: 8.0, unit: "h (local)", range: Some((7.0, 9.0)), varies_with: "chronotype", source: "diurnal peaks ~07:00, 13:00, 19:00; the main acrophase in the morning", status: Unverified, note: None),
+  (name: "car_nmol", value: 120.0, unit: "nmol/L", range: Some((50.0, 200.0)), varies_with: "sleep quality, early-life stress", source: "CAR 50-160 % rise (+9 nmol/L salivary avg); serum scale ≈ 25× salivary", status: Tunable, note: None),
+  (name: "car_rise_min", value: 30.0, unit: "min", range: None, varies_with: "-", source: "the awakening response peaks ~30 min after waking", status: Unverified, note: None),
+  (name: "half_life_min", value: 60.0, unit: "min", range: Some((40.0, 78.0)), varies_with: "age, illness", source: "cortisol plasma half-life ~60 min (alt. 40 ± 11)", status: Verified, note: None),
+  (name: "stress_peak_nmol", value: 150.0, unit: "nmol/L", range: None, varies_with: "sex, stressor", source: "TSST salivary peak ~11 (women) vs baseline 7-9 nmol/L: a +50 % pulse; serum-scaled", status: Tunable, note: None),
+  (name: "stress_rise_min", value: 12.0, unit: "min", range: None, varies_with: "-", source: "acute stress cortisol time-to-peak ~12 min after the stressor ends", status: Verified, note: None),
+]
