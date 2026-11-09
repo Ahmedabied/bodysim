@@ -37,5 +37,7 @@ fn main() {
     let rep = e.run_until(SimTime::ZERO + Span::days(days));
     let run = t1.elapsed().as_secs_f64();
     println!("{days} simulated days, 3 adults: {} events in {:.3} s (setup {:.3} s)", rep.steps, run, setup);
-    println!("{:.0} simulated days per second, {:.0} events per second", days as f64 / run, rep.steps as f64 / run);
+    println!("{:.1} simulated days per second, {:.0} events per second", days as f64 / run, rep.steps as f64 / run);
+    let hash: String = rep.hash.iter().take(8).map(|b| format!("{b:02x}")).collect();
+    println!("state hash {hash} (the same for every run with the same days)");
 }

@@ -14,11 +14,11 @@ Rust 1.85 or newer. Clone this repository, then from its folder:
 ```sh
 cargo run --release --example day -- 2 > day.csv       # two days of three example adults, every 10 minutes
 python3 scripts/plot_day.py day.csv day.svg            # the picture above (standard library only)
-cargo test                                             # 20 tests, about 3 s after the build
+cargo test                                             # 22 tests, about 3 s after the build
 ```
 
 From a fresh clone to the plot took 15.3 s here, the first build included (400 MB peak memory).
-After that a simulated day of three adults takes about 50 ms.
+After that a simulated day of three adults takes about 43 ms.
 
 ## How it works
 
@@ -56,13 +56,15 @@ day, Intel i5-14400F:
 
 | run length | simulated days per second | events per second |
 |---|---|---|
-| 30 days | 20 | 25,507 |
-| 365 days | 4.9 | 6,301 (471,998 events in 74.9 s) |
+| 30 days | 23.4 | 30,331 |
+| 365 days | 23.0 | 29,713 (471,998 events in 15.9 s) |
+
+A year used to cost five times more per day than a month (4.9 days per second): the bench schedules every meal
+of the run up front, and cancelling one kind of pending event walked all of a person's thousands of future events.
+The event list now keeps an index per person and kind; the state hash is unchanged.
 
 ## Limits
 
-- **It slows down over long runs.** A year costs about four times more per simulated day than a month, so some
-  state grows with time. Not profiled yet.
 - **The three example adults are nearly the same person.** They share every constant; their curves differ by less
   than 1 C in core temperature and 0.3 mg/dL in glucose.
 - **Glucose is the linear, decoupled case** of the Bergman minimal model: insulin follows glucose but does not act

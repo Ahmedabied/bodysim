@@ -29,6 +29,9 @@ pub struct Fel {
     /// pending keys per subject - `cancel_for` is the most common FEL operation and must not scan
     /// (a `BTreeSet`, not a `Vec`: one subject may own a million pending events)
     by_subject: IndexMap<EntityId, BTreeSet<Key>>,
+    /// pending keys per (subject, kind): cancelling one kind must not walk every event the subject
+    /// owns (a year of meals injected up front made each cancel walk thousands of them)
+    by_kind: IndexMap<(EntityId, EventKind), BTreeSet<Key>>,
     seq: u64,
 }
 
@@ -39,47 +42,57 @@ impl Fel {
         let h = Handle { at: s.at, prio: s.prio, seq: self.seq };
         let key = (s.at, s.prio, self.seq);
         self.by_subject.entry(s.subject).or_default().insert(key);
+        self.by_kind.entry((s.subject, kind)).or_default().insert(key);
         self.queue.insert(key, Pending { kind, kind_name: s.kind, subject: s.subject, payload: s.payload, why: s.why, cause });
         h
     }
-    fn forget(&mut self, subject: EntityId, key: Key) {
+    fn forget(&mut self, subject: EntityId, kind: EventKind, key: Key) {
         if let Some(v) = self.by_subject.get_mut(&subject) {
             v.remove(&key);
             if v.is_empty() { self.by_subject.swap_remove(&subject); }
+        }
+        if let Some(v) = self.by_kind.get_mut(&(subject, kind)) {
+            v.remove(&key);
+            if v.is_empty() { self.by_kind.swap_remove(&(subject, kind)); }
+        }
+    }
+    /// The pending keys of `e` (of one kind, or all), in queue order.
+    fn keys_for(&self, e: EntityId, kind: Option<EventKind>) -> Vec<Key> {
+        match kind {
+            Some(k) => self.by_kind.get(&(e, k)).map(|v| v.iter().copied().collect()).unwrap_or_default(),
+            None => self.by_subject.get(&e).map(|v| v.iter().copied().collect()).unwrap_or_default(),
         }
     }
     /// Cancel one handle. Returns the cancelled event's `why`, if it was pending.
     pub fn cancel(&mut self, h: Handle) -> Option<&'static str> {
         let key = (h.at, h.prio, h.seq);
         match self.queue.remove(&key) {
-            Some(p) => { self.forget(p.subject, key); Some(p.why) }
+            Some(p) => { self.forget(p.subject, p.kind, key); Some(p.why) }
             None => None,
         }
     }
     /// Cancel every pending event of `kind` (or any kind) whose subject is `e`. Returns their `why`s.
     pub fn cancel_for(&mut self, e: EntityId, kind: Option<EventKind>) -> Vec<&'static str> {
-        let Some(keys) = self.by_subject.get(&e).map(|v| v.iter().copied().collect::<Vec<_>>()) else { return Vec::new() };
         let mut whys = Vec::new();
-        for k in keys {
-            let hit = self.queue.get(&k).is_some_and(|p| kind.is_none_or(|kk| p.kind == kk));
-            if hit { if let Some(p) = self.queue.remove(&k) { self.forget(e, k); whys.push(p.why); } }
+        for k in self.keys_for(e, kind) {
+            if let Some(p) = self.queue.remove(&k) { self.forget(e, p.kind, k); whys.push(p.why); }
         }
         whys
     }
     /// Cancel pending events of `kind` for `e` whose `why` matches - a plugin cancels only its own
     /// crossings when several plugins share an event kind. Returns their `why`s.
     pub fn cancel_for_why(&mut self, e: EntityId, kind: EventKind, why: &str) -> Vec<&'static str> {
-        let Some(keys) = self.by_subject.get(&e).map(|v| v.iter().copied().collect::<Vec<_>>()) else { return Vec::new() };
         let mut whys = Vec::new();
-        for k in keys {
-            let hit = self.queue.get(&k).is_some_and(|p| p.kind == kind && p.why == why);
-            if hit { if let Some(p) = self.queue.remove(&k) { self.forget(e, k); whys.push(p.why); } }
+        for k in self.keys_for(e, Some(kind)) {
+            if self.queue.get(&k).is_some_and(|p| p.why == why) {
+                if let Some(p) = self.queue.remove(&k) { self.forget(e, kind, k); whys.push(p.why); }
+            }
         }
         whys
     }
     pub fn pop(&mut self) -> Option<Event> {
         let (k, p) = self.queue.pop_first()?;
-        self.forget(p.subject, k);
+        self.forget(p.subject, p.kind, k);
         Some(Event { id: EventId(k.2), at: k.0, prio: k.1, kind: p.kind, kind_name: p.kind_name, subject: p.subject, cause: p.cause, payload: p.payload, why: p.why })
     }
     pub fn peek_time(&self) -> Option<SimTime> { self.queue.keys().next().map(|k| k.0) }
@@ -91,11 +104,7 @@ impl Fel {
         self.queue.iter().map(|(k, p)| (Handle { at: k.0, prio: k.1, seq: k.2 }, p.kind_name, p.subject, p.why))
     }
     pub fn pending_for(&self, e: EntityId, kind: Option<EventKind>) -> Vec<Handle> {
-        let mut v: Vec<Handle> = self.by_subject.get(&e).into_iter().flatten()
-            .filter(|k| self.queue.get(k).is_some_and(|p| kind.is_none_or(|kk| p.kind == kk)))
-            .map(|k| Handle { at: k.0, prio: k.1, seq: k.2 }).collect();
-        v.sort();
-        v
+        self.keys_for(e, kind).into_iter().map(|k| Handle { at: k.0, prio: k.1, seq: k.2 }).collect()
     }
     /// Every pending event, in order (THE EPOCH).
     pub fn rows(&self) -> Vec<PendingRow> {
@@ -106,11 +115,13 @@ impl Fel {
     pub fn restore_rows(&mut self, rows: Vec<(PendingRow, EventKind, &'static str)>, seq: u64) {
         self.queue.clear();
         self.by_subject.clear();
+        self.by_kind.clear();
         let mut whys: IndexMap<String, &'static str> = IndexMap::new();
         for (r, kind, kind_name) in rows {
             let why: &'static str = match whys.get(&r.why) { Some(w) => w, None => { let w: &'static str = Box::leak(r.why.clone().into_boxed_str()); whys.insert(r.why.clone(), w); w } };
             let key = (r.at, r.prio, r.seq);
             self.by_subject.entry(r.subject).or_default().insert(key);
+            self.by_kind.entry((r.subject, kind)).or_default().insert(key);
             self.queue.insert(key, Pending { kind, kind_name, subject: r.subject, payload: Payload(r.payload), why, cause: r.cause });
         }
         self.seq = seq;
@@ -130,5 +141,45 @@ impl Fel {
             h.update(&p.subject.gen.to_le_bytes());
             h.update(&p.payload.0);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::time::Span;
+
+    fn sched(fel: &mut Fel, mins: i64, kind: u16, who: u32, why: &'static str) {
+        let s = Schedule { at: SimTime::ZERO + Span::mins(mins), prio: 0, kind: "k", subject: EntityId::new(who, 0), payload: Payload::none(), why };
+        fel.push(s, EventKind(kind), None);
+    }
+
+    #[test]
+    fn cancelling_one_kind_touches_only_that_kind_and_the_index_stays_whole() {
+        let mut fel = Fel::new();
+        let (a, b) = (EntityId::new(1, 0), EntityId::new(2, 0));
+        for m in 0..1000 { sched(&mut fel, m, 1, 1, "meal"); }
+        sched(&mut fel, 5, 2, 1, "check");
+        sched(&mut fel, 3, 2, 1, "other");
+        sched(&mut fel, 4, 2, 2, "check");
+        assert_eq!(fel.pending_for(a, Some(EventKind(2))).iter().map(|h| h.at).collect::<Vec<_>>(),
+                   vec![SimTime::ZERO + Span::mins(3), SimTime::ZERO + Span::mins(5)], "in queue order");
+        assert_eq!(fel.cancel_for_why(a, EventKind(2), "check"), vec!["check"]);
+        assert_eq!(fel.cancel_for(a, Some(EventKind(2))), vec!["other"]);
+        assert_eq!(fel.len(), 1001, "the other subject and the other kind are untouched");
+        assert_eq!(fel.pending_for(b, None).len(), 1);
+        while let Some(ev) = fel.pop() { assert!(ev.kind == EventKind(1) || ev.subject == b); }
+        assert!(fel.by_subject.is_empty() && fel.by_kind.is_empty(), "nothing left behind in either index");
+    }
+
+    #[test]
+    fn restored_rows_rebuild_the_kind_index() {
+        let mut fel = Fel::new();
+        for m in 0..10 { sched(&mut fel, m, (m % 2) as u16, 1, "x"); }
+        let rows = fel.rows().into_iter().map(|r| { let k = EventKind((r.at.0 / 60_000_000_000 % 2) as u16); (r, k, "k") }).collect();
+        let mut back = Fel::new();
+        back.restore_rows(rows, fel.seq());
+        assert_eq!(back.cancel_for(EntityId::new(1, 0), Some(EventKind(1))).len(), 5);
+        assert_eq!(back.len(), 5);
     }
 }
