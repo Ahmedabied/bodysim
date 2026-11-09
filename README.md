@@ -7,7 +7,7 @@ no fixed time step, a year is cheap, and the same seed always gives the same bod
 
 ![One simulated day: cortisol, core temperature and glucose](docs/day.svg)
 
-## Run it in a few minutes
+## Run it in under a minute
 
 Rust 1.85 or newer. Clone this repository, then from its folder:
 
@@ -17,7 +17,8 @@ python3 scripts/plot_day.py day.csv day.svg            # the picture above (stan
 cargo test                                             # 20 tests, about 3 s after the build
 ```
 
-The first build compiles the dependencies; after that a simulated day of three adults takes about 50 ms.
+From a fresh clone to the plot took 15.3 s here, the first build included (400 MB peak memory).
+After that a simulated day of three adults takes about 50 ms.
 
 ## How it works
 
