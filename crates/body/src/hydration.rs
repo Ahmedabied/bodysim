@@ -103,10 +103,13 @@ impl Plugin for HydrationPlugin {
             rest: RestBound::Neither,
         });
         // If the bladder ever passes maximum cystometric capacity, it must be back below within
-        // the hour: someone goes, or something is wrong with the loop.
+        // the hour: someone goes, or something is wrong with the loop. The threshold IS the content's
+        // capacity, read once here, so retuning the constant moves the check with it. (A missing row
+        // is already a defect at finalize: the water system declares it.)
+        let capacity = r.constants().value("body.hydration.bladder_capacity_ml").unwrap_or(f64::NAN);
         r.invariant(Invariant::BoundedResponse {
             name: "a full bladder empties within the hour",
-            kind: "bladder", field: "v", threshold: 370.0, within: Span::hours(1),
+            kind: "bladder", field: "v", threshold: capacity, within: Span::hours(1),
         });
     }
 }

@@ -36,3 +36,14 @@ fn the_ordinary_day_refuses_no_write_and_without_water_it_does() {
     assert_eq!(refused_after(10, true), 0, "the bench's ordinary day refused writes");
     assert!(refused_after(10, false) > 0, "ten days without water refused nothing: the check above proves nothing");
 }
+
+#[test]
+fn the_full_bladder_check_uses_the_content_capacity() {
+    let mut r = Registry::new();
+    register_body(&mut r);
+    register_people(&mut r);
+    let bp = r.finalize().unwrap_or_else(|d| panic!("defects: {d:?}"));
+    let capacity = bp.constants.value("body.hydration.bladder_capacity_ml").unwrap();
+    let inv = bp.invariants.iter().find(|i| i.name == "a full bladder empties within the hour").expect("the bladder check");
+    assert_eq!(inv.threshold, capacity);
+}
