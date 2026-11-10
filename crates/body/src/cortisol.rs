@@ -66,6 +66,11 @@ fn hpa(w: &World, ev: &Event, ctx: &mut Ctx) -> Out {
         "wake" => c.pulses.push(pulse(w.k("body.cortisol.car_nmol"), w.k("body.cortisol.car_rise_min"), hl, now)),
         "stressor" => {
             let intensity: f64 = ev.decode().unwrap_or(1.0);
+            // clamp passes NaN through, and a pulse list is outside the engine's finite check
+            if intensity.is_nan() {
+                out.note("stressor refused: its intensity is not a number");
+                return out;
+            }
             c.pulses.push(pulse(w.k("body.cortisol.stress_peak_nmol") * intensity.clamp(0.0, 3.0), w.k("body.cortisol.stress_rise_min"), hl, now));
         }
         _ => return out,

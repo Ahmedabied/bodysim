@@ -1,8 +1,10 @@
-//! A caffeine dose comes from outside the simulation, so its amount is checked where it comes in.
+//! A caffeine dose and a stressor come from outside the simulation, so their amounts are checked
+//! where they come in.
 //!
-//! The engine refuses a non-finite number in a state write, but a dose is stored inside a list of
-//! Bateman curves, which that check cannot see into. A NaN dose would make plasma caffeine NaN,
-//! then the sleep onset threshold NaN, and no onset would ever be found again.
+//! The engine refuses a non-finite number in a state write, but doses and cortisol pulses are
+//! stored inside lists of Bateman curves, which that check cannot see into. A NaN dose would make
+//! plasma caffeine NaN, then the sleep onset threshold NaN, and no onset would ever be found again.
+use bodysim::cortisol::{baseline, cortisol_nmol, Cortisol, EV_STRESSOR};
 use bodysim::pk::{caffeine_mg_l, Caffeine, EV_DOSE};
 use bodysim::sleep::{Sleep, SleepState};
 use bodysim::{register_body, register_people};
@@ -51,4 +53,35 @@ fn a_real_dose_is_still_taken() {
     assert_eq!((doses, refused), (1, 0));
     assert!(conc > 0.0 && conc.is_finite(), "plasma caffeine {conc}");
     assert!(slept);
+}
+
+/// Inject a stressor of `intensity` at 10:00 on day one; adult-a's cortisol at 10:15, and how many
+/// refusals the log holds.
+fn after_a_stressor(intensity: f64) -> (f64, f64, usize) {
+    let mut r = Registry::new();
+    register_body(&mut r);
+    register_people(&mut r);
+    let bp = r.finalize().unwrap_or_else(|d| panic!("defects: {d:?}"));
+    let mut e = bp.build(1, LogWriter::memory(), 1000).expect("build");
+    let id = e.world.find("adult-a").unwrap();
+    let t0 = SimTime::ZERO + Span::hours(10);
+    e.inject(EV_STRESSOR, id, Payload::of(&intensity), Some(t0)).unwrap();
+    let t = t0 + Span::mins(15);
+    e.run_until(t);
+    let refused = e.log.records().filter(|r| matches!(r, Record::Note { text, .. } if text.starts_with("stressor refused"))).count();
+    (cortisol_nmol(&e.world, e.world.get::<Cortisol>(id).unwrap(), t), baseline(&e.world, t), refused)
+}
+
+#[test]
+fn a_stressor_of_no_number_is_refused() {
+    // clamp passes NaN straight through, so it has to be named
+    let (c, _, refused) = after_a_stressor(f64::NAN);
+    assert!(c.is_finite(), "cortisol {c}");
+    assert_eq!(refused, 1);
+    // a real one still lands, and out of range is still clamped, not refused
+    for x in [1.0, f64::INFINITY] {
+        let (c, base, refused) = after_a_stressor(x);
+        assert!(c > base + 1.0 && c.is_finite(), "{x}: cortisol {c}, baseline {base}");
+        assert_eq!(refused, 0);
+    }
 }
