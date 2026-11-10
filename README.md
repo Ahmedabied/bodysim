@@ -14,7 +14,7 @@ Rust 1.85 or newer (CI builds and tests on 1.85 and on stable). Clone this repos
 ```sh
 cargo run --release --example day -- 2 > day.csv       # two days of three example adults, every 10 minutes
 python3 scripts/plot_day.py day.csv day.svg            # the picture above (standard library only)
-cargo test                                             # 39 tests, about 7 s after the build
+cargo test                                             # 40 tests, about 7 s after the build
 ```
 
 From a fresh clone to the plot took 15.3 s here, the first build included (400 MB peak memory).
@@ -53,13 +53,17 @@ All values mg/dL. (The paper's table labels these columns mmol/L, but the values
 was fitted to get there: the plasma rise per gram absorbed, 1.75 mg/dL, below the 7.7 you would get if a whole gram
 spread through about 130 dL of glucose space with nothing taken up on the way.
 
-**Speed.** `cargo run --release --example bench -- DAYS`, three adults with three meals and five toilet visits a
-day, Intel i5-14400F:
+**Speed.** `cargo run --release --example bench -- DAYS`, three adults with three meals, five toilet visits and
+eight 250 mL drinks a day, Intel i5-14400F, the median of five runs:
 
 | run length | simulated days per second | events per second |
 |---|---|---|
-| 30 days | 114 | 148,000 |
-| 365 days | 118 | 152,500 (471,998 events in 3.1 s, the median of 8 runs) |
+| 30 days | 106 | 145,100 |
+| 365 days | 108 | 148,200 (501,277 events in 3.38 s) |
+
+The bench prints the writes the rules refused, and a year refuses none. Until 2026-11-10 it gave nobody any water:
+from day 7 each body sat at the 8 L limit of its water deficit and 93,902 writes in the year were refused, so the
+older numbers below were measured on a body that had dried out. They still compare like with like.
 
 Four things made it this fast, and none changed a single bit of the result (same events, same state hash, the
 day's CSV identical byte for byte):

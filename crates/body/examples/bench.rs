@@ -1,5 +1,6 @@
-//! How fast the simulation runs: simulated days per second of wall time, three adults with meals and toilet
-//! visits, no sampling (the engine only wakes on events and threshold crossings).
+//! How fast the simulation runs: simulated days per second of wall time, three adults with meals, drinks and
+//! toilet visits, no sampling (the engine only wakes on events and threshold crossings). The run must stay
+//! healthy: it prints the writes the rules refused, and that number is 0.
 //!
 //!     cargo run --release --example bench -- [days]
 //!
@@ -7,7 +8,7 @@
 #![allow(clippy::disallowed_methods)]
 use bodysim::digestion::{Eat, MealKind, EV_EAT};
 use bodysim::hydration::EV_VOID;
-use bodysim::{register_body, register_people};
+use bodysim::{register_body, register_people, DrinkPayload};
 use bodysim_core::prelude::*;
 use std::time::Instant;
 
@@ -30,6 +31,11 @@ fn main() {
             for h in [7, 11, 15, 19, 23] {
                 e.inject(EV_VOID, id, Payload::none(), Some(SimTime::ZERO + Span::days(d) + Span::secs(h * 3600))).expect("void");
             }
+            // about 2 L a day: without water the deficit reaches its bound in a week and every water write is refused
+            for h in [8, 10, 12, 14, 16, 18, 20, 22] {
+                let drink = DrinkPayload { by: id, volume_l: 0.25 };
+                e.inject("drink", id, Payload::of(&drink), Some(SimTime::ZERO + Span::days(d) + Span::secs(h * 3600))).expect("drink");
+            }
         }
     }
     let setup = t0.elapsed().as_secs_f64();
@@ -40,4 +46,5 @@ fn main() {
     println!("{:.1} simulated days per second, {:.0} events per second", days as f64 / run, rep.steps as f64 / run);
     let hash: String = rep.hash.iter().take(8).map(|b| format!("{b:02x}")).collect();
     println!("state hash {hash} (the same for every run with the same days)");
+    println!("refused writes: {}", e.counters.rejected);
 }
