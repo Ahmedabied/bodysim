@@ -14,7 +14,7 @@ Rust 1.85 or newer (CI builds and tests on 1.85 and on stable). Clone this repos
 ```sh
 cargo run --release --example day -- 2 > day.csv       # two days of three example adults, every 10 minutes
 python3 scripts/plot_day.py day.csv day.svg            # the picture above (standard library only)
-cargo test                                             # 27 tests, about 7 s after the build
+cargo test                                             # 29 tests, about 7 s after the build
 ```
 
 From a fresh clone to the plot took 15.3 s here, the first build included (400 MB peak memory).

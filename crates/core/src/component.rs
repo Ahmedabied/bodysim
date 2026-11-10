@@ -132,6 +132,11 @@ impl<T: Component> SparseSet<T> {
     pub fn iter(&self) -> impl Iterator<Item = (EntityId, &T)> { self.entities.iter().copied().zip(self.dense.iter()) }
     pub fn len(&self) -> usize { self.dense.len() }
     pub fn is_empty(&self) -> bool { self.dense.is_empty() }
+    /// Rows in the order `iter` walks them, not sorted: restoring them one by one rebuilds that same order, and a
+    /// system that schedules one event per entity numbers the events in it (event ids key the RNG streams).
+    fn rows_in_store_order(&self) -> Vec<(EntityId, SimTime, &T)> {
+        self.entities.iter().zip(&self.changed_at).zip(&self.dense).map(|((e, t), c)| (*e, *t, c)).collect()
+    }
 }
 
 /// Type-erased store.
@@ -192,20 +197,14 @@ impl<T: Component> AnyStore for SparseSet<T> {
             h.update(&c.to_bytes());
         }
     }
-    fn snapshot(&self) -> Vec<u8> {
-        let rows: Vec<(EntityId, SimTime, &T)> = self.entities().into_iter().map(|e| (e, self.changed_at(e).unwrap_or_default(), self.get(e).unwrap())).collect();
-        postcard::to_stdvec(&rows).expect("postcard")
-    }
+    fn snapshot(&self) -> Vec<u8> { postcard::to_stdvec(&self.rows_in_store_order()).expect("postcard") }
     fn restore(&mut self, bytes: &[u8]) -> Result<(), String> {
         let rows: Vec<(EntityId, SimTime, T)> = postcard::from_bytes(bytes).map_err(|e| e.to_string())?;
         *self = SparseSet::new();
         for (e, t, c) in rows { self.insert(e, c, t); }
         Ok(())
     }
-    fn snapshot_ron(&self) -> Result<String, String> {
-        let rows: Vec<(EntityId, SimTime, &T)> = self.entities().into_iter().map(|e| (e, self.changed_at(e).unwrap_or_default(), self.get(e).unwrap())).collect();
-        ron::to_string(&rows).map_err(|e| format!("{}: {e}", T::NAME))
-    }
+    fn snapshot_ron(&self) -> Result<String, String> { ron::to_string(&self.rows_in_store_order()).map_err(|e| format!("{}: {e}", T::NAME)) }
     fn restore_ron(&mut self, text: &str) -> Result<(), String> {
         let rows: Vec<(EntityId, SimTime, T)> = ron::from_str(text).map_err(|e| format!("{}: {e}", T::NAME))?;
         *self = SparseSet::new();
