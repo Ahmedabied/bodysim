@@ -83,8 +83,10 @@ day's CSV identical byte for byte):
 - **The three example adults are nearly the same person.** They share every constant; their curves differ by less
   than 1 C in core temperature and 0.3 mg/dL in glucose.
 - **Glucose is the linear, decoupled case** of the Bergman minimal model: insulin follows glucose but does not act
-  on it. A solid meal of 60 to 80 g of carbohydrate peaks 20 to 27 mg/dL up, about 100 minutes after eating (the
-  solid-meal gastric emptying lag); real mixed meals usually peak earlier.
+  on it, and it only follows each absorbed window. Between meals it settles at the level the last window set
+  instead of falling back to fasting: 10 h after a 75 g glucose drink, glucose is back at 85.0 mg/dL and insulin
+  still at 16.6 uU/mL (fasting 7.6). A solid meal of 60 to 80 g of carbohydrate peaks 20 to 27 mg/dL up, about
+  100 minutes after eating (the solid-meal gastric emptying lag); real mixed meals usually peak earlier.
 - **Core temperature follows sleep more than the clock.** It falls through the night to its low at waking and then
   sits near 36.9 C with a small sawtooth; the usual low is around 04:00 to 06:00. The room is held at 27 C because
   there is no bedding yet; at 21 C a lightly clothed sleeper would get far too cold.
