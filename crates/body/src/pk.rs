@@ -47,7 +47,13 @@ fn pharmacokinetics(w: &World, ev: &Event, ctx: &mut Ctx) -> Out {
     let e = ev.subject;
     let Some(c) = w.get::<Caffeine>(e) else { return out };
     let mg: f64 = ev.decode().unwrap_or(0.0);
-    if mg <= 0.0 { return out; }
+    // A dose comes from outside, and the engine's finite check cannot see inside a list of doses:
+    // one NaN or infinite amount would make the sleep onset threshold NaN for good.
+    if !mg.is_finite() || mg < 0.0 {
+        out.note(format!("dose refused: {mg} mg is not a finite amount of zero or more"));
+        return out;
+    }
+    if mg == 0.0 { return out; }
     let mut c = c.clone();
     let ke = (2f64).ln() / (w.k("body.pk.caffeine_half_life_h") * 3600.0);
     c.doses.push(Bateman { dose: mg, f: w.k("body.pk.caffeine_f"), ka: w.k("body.pk.caffeine_ka_per_min") / 60.0, ke, vd: w.k("body.pk.caffeine_vd_l"), t0: now });
