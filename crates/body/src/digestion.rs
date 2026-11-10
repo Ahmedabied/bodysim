@@ -135,6 +135,12 @@ fn gut(w: &World, ev: &Event, ctx: &mut Ctx) -> Out {
     match ev.kind_name {
         "eat" => {
             let Some(m) = ev.decode::<Eat>() else { return out };
+            // A meal comes from outside, and the engine's finite check cannot see inside the meal list:
+            // one NaN carb amount left glucose unable to rise again.
+            if ![m.mass_g, m.carb_g, m.kj].iter().all(|x| x.is_finite() && *x >= 0.0) {
+                out.note(format!("meal refused: mass {} g, carb {} g, {} kJ is not a finite amount of zero or more each", m.mass_g, m.carb_g, m.kj));
+                return out;
+            }
             let (k, beta) = match m.kind {
                 MealKind::Liquid => (w.k("body.digestion.k_liquid_per_min"), w.k("body.digestion.beta_liquid")),
                 MealKind::Solid => (w.k("body.digestion.k_solid_per_min"), w.k("body.digestion.beta_solid")),

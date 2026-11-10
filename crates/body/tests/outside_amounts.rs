@@ -1,10 +1,12 @@
-//! A caffeine dose and a stressor come from outside the simulation, so their amounts are checked
-//! where they come in.
+//! A caffeine dose, a stressor and a meal come from outside the simulation, so their amounts are
+//! checked where they come in.
 //!
-//! The engine refuses a non-finite number in a state write, but doses and cortisol pulses are
-//! stored inside lists of Bateman curves, which that check cannot see into. A NaN dose would make
+//! The engine refuses a non-finite number in a state write, but doses, cortisol pulses and meals
+//! are stored inside lists, which that check cannot see into. A NaN dose would make
 //! plasma caffeine NaN, then the sleep onset threshold NaN, and no onset would ever be found again.
 use bodysim::cortisol::{baseline, cortisol_nmol, Cortisol, EV_STRESSOR};
+use bodysim::digestion::{Digestion, Eat, MealKind, EV_EAT};
+use bodysim::glucose::Glucose;
 use bodysim::pk::{caffeine_mg_l, Caffeine, EV_DOSE};
 use bodysim::sleep::{Sleep, SleepState};
 use bodysim::{register_body, register_people};
@@ -84,4 +86,47 @@ fn a_stressor_of_no_number_is_refused() {
         assert!(c > base + 1.0 && c.is_finite(), "{x}: cortisol {c}, baseline {base}");
         assert_eq!(refused, 0);
     }
+}
+
+/// Inject a meal at 08:00, then the 75 g glucose drink of the OGTT test at 12:00. Returns adult-a's
+/// glucose rise 30 min after the drink, whether any stored meal holds a non-finite number, and how
+/// many refusals the log holds.
+fn after_a_meal(bad: Eat) -> (f64, bool, usize) {
+    let mut r = Registry::new();
+    register_body(&mut r);
+    register_people(&mut r);
+    let bp = r.finalize().unwrap_or_else(|d| panic!("defects: {d:?}"));
+    let mut e = bp.build(1, LogWriter::memory(), 1000).expect("build");
+    let id = e.world.find("adult-a").unwrap();
+    let t0 = SimTime::ZERO + Span::hours(8);
+    e.inject(EV_EAT, id, Payload::of(&bad), Some(t0)).unwrap();
+    let t1 = t0 + Span::hours(4);
+    let drink = Eat { mass_g: 375.0, carb_g: 75.0, kj: 75.0 * 15.6, kind: MealKind::Liquid };
+    e.inject(EV_EAT, id, Payload::of(&drink), Some(t1)).unwrap();
+    e.run_until(t1);
+    let before = e.world.get::<Glucose>(id).unwrap().g.at(t1);
+    let t2 = t1 + Span::mins(30);
+    e.run_until(t2);
+    let rise = e.world.get::<Glucose>(id).unwrap().g.at(t2) - before;
+    let poisoned = e.world.get::<Digestion>(id).unwrap().meals.iter().any(|m| !(m.mass_g.is_finite() && m.carb_g.is_finite() && m.kj.is_finite()));
+    let refused = e.log.records().filter(|r| matches!(r, Record::Note { text, .. } if text.starts_with("meal refused"))).count();
+    (rise, poisoned, refused)
+}
+
+#[test]
+fn a_meal_with_an_amount_that_is_not_a_finite_amount_is_refused() {
+    let ok = Eat { mass_g: 400.0, carb_g: 60.0, kj: 2500.0, kind: MealKind::Solid };
+    for bad in [
+        Eat { carb_g: f64::NAN, ..ok },
+        Eat { mass_g: f64::INFINITY, ..ok },
+        Eat { kj: f64::NAN, ..ok },
+        Eat { carb_g: -60.0, ..ok },
+    ] {
+        let (rise, poisoned, refused) = after_a_meal(bad);
+        assert!(!poisoned, "{bad:?} was stored as a meal");
+        assert_eq!(refused, 1, "{bad:?} was dropped without a word in the log");
+        assert!(rise > 20.0, "{bad:?}: the next drink raised glucose only {rise:.1} mg/dL");
+    }
+    let (rise, poisoned, refused) = after_a_meal(ok);
+    assert!(!poisoned && refused == 0 && rise.is_finite(), "a real meal: rise {rise:.1}, refused {refused}");
 }
