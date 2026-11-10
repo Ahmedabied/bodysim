@@ -66,6 +66,11 @@ impl LogWriter {
         let f = if append { OpenOptions::new().create(true).append(true).open(path)? } else { File::create(path)? };
         Ok(LogWriter { file: Some(BufWriter::new(f)), memory: Vec::new(), keep_memory: false, rule_versions: 0, count: 0 })
     }
+    /// A log that must not exist yet: refused, and nothing touched, if a file is already at `path`.
+    pub fn file_new(path: impl AsRef<Path>) -> io::Result<LogWriter> {
+        let f = OpenOptions::new().write(true).create_new(true).open(path)?;
+        Ok(LogWriter { file: Some(BufWriter::new(f)), memory: Vec::new(), keep_memory: false, rule_versions: 0, count: 0 })
+    }
     pub fn with_memory(mut self, keep: bool) -> LogWriter { self.keep_memory = keep; self }
     pub fn append(&mut self, record: Record) {
         let env = Envelope { schema_version: SCHEMA_VERSION, rule_versions: self.rule_versions, record };

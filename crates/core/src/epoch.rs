@@ -217,10 +217,14 @@ pub fn epoch_of(records: &[Envelope]) -> Result<Option<EpochState>, String> {
 }
 
 /// The fresh log: header under `bp`'s content hash, the state, a checkpoint that pins it, then the founding's own
-/// records (what adoption applied), so the fold is `restore` and nothing else.
+/// records (what adoption applied), so the fold is `restore` and nothing else. `path` must not exist yet.
 #[allow(clippy::too_many_arguments)] // every argument is a distinct part of the log header
 pub fn write_epoch_log(path: &std::path::Path, bp: &Blueprint, seed: u64, checkpoint_every: u64, created: &str, st: &EpochState, prior: &str, prior_hash: [u8; 32], prior_records: u64, founding: &[Envelope]) -> Result<(), String> {
-    let mut log = LogWriter::file(path, false).map_err(|e| e.to_string())?;
+    // a fresh file only: the prior log is archived as history, never written over (archive it first)
+    let mut log = LogWriter::file_new(path).map_err(|e| match e.kind() {
+        std::io::ErrorKind::AlreadyExists => format!("{} already exists: an epoch log is a new file, archive the prior one first", path.display()),
+        _ => format!("{}: {e}", path.display()),
+    })?;
     log.rule_versions = bp.rule_versions;
     log.append(Record::Header { seed, schema_version: crate::log::SCHEMA_VERSION, checkpoint_every, created: created.to_string(), content_hash: bp.content_hash, plugins: bp.plugins.iter().map(|p| p.to_string()).collect() });
     let bytes = postcard::to_stdvec(st).map_err(|e| e.to_string())?;
