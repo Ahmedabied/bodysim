@@ -4,7 +4,9 @@
 use bodysim::digestion::{Eat, MealKind, EV_EAT};
 use bodysim::hydration::EV_VOID;
 use bodysim::{register_body, register_people, DrinkPayload};
+use bodysim_core::log::ChangeRecord;
 use bodysim_core::prelude::*;
+use bodysim_core::value::Value;
 
 const DAYS: i64 = 10;
 
@@ -40,22 +42,34 @@ fn nobody_uses_the_toilet_asleep_and_nights_stay_whole() {
     assert_eq!(e.counters.rejected, 0, "refused writes");
     for name in ["adult-a", "adult-b", "adult-c"] {
         let id = e.world.find(name).unwrap();
+        // follow the sleep state itself (a return to bed after a night visit has no `sleep_onset` event)
         let mut asleep_since: Option<SimTime> = None;
         let mut slept_by_night = vec![0.0f64; DAYS as usize + 1];
         let mut visits = 0;
+        let mut now = SimTime::ZERO;
         for rec in e.log.records() {
-            let Record::Event { at, kind, subject, .. } = rec else { continue };
-            if *subject != id { continue; }
-            match kind.as_str() {
-                "sleep_onset" => asleep_since = Some(*at),
-                "wake" => if let Some(s) = asleep_since.take() {
-                    // a night runs noon to noon
-                    let night = ((s - SimTime::ZERO).as_hours_f64() + 12.0).div_euclid(24.0) as usize;
-                    slept_by_night[night] += (*at - s).as_hours_f64();
-                },
-                "void" | "defecate" => {
-                    visits += 1;
-                    assert!(asleep_since.is_none(), "{name}: `{kind}` at {at} while asleep");
+            match rec {
+                Record::Event { at, kind, subject, .. } => {
+                    now = *at;
+                    if *subject == id && (kind == "void" || kind == "defecate") {
+                        visits += 1;
+                        assert!(asleep_since.is_none(), "{name}: `{kind}` at {at} while asleep");
+                    }
+                }
+                Record::Applied { entity, change: ChangeRecord::Set { kind, fields }, .. } if *entity == id && kind == "sleep" => {
+                    for (field, _, new) in fields {
+                        if field != "state" { continue; }
+                        match (new, asleep_since) {
+                            (Value::Enum(1), None) => asleep_since = Some(now),
+                            (Value::Enum(0), Some(s)) => {
+                                // a night runs noon to noon
+                                let night = ((s - SimTime::ZERO).as_hours_f64() + 12.0).div_euclid(24.0) as usize;
+                                slept_by_night[night] += (now - s).as_hours_f64();
+                                asleep_since = None;
+                            }
+                            _ => {}
+                        }
+                    }
                 }
                 _ => {}
             }
