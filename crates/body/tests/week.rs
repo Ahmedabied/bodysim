@@ -1,16 +1,20 @@
-//! A week of the three example adults: deterministic, replayable, and inside physiological ranges.
+//! A week of the three example adults, with meals, drinks and toilet visits: deterministic, replayable, and
+//! inside physiological ranges.
 use bodysim::cortisol::{cortisol_nmol, Cortisol};
 use bodysim::digestion::{Eat, MealKind, EV_EAT};
 use bodysim::glucose::Glucose;
-use bodysim::hydration::EV_VOID;
+use bodysim::hydration::{Hydration, EV_VOID};
 use bodysim::thermo::Thermo;
-use bodysim::{register_body, register_people};
+use bodysim::{register_body, register_people, DrinkPayload};
 use bodysim_core::prelude::*;
 use bodysim_core::relax::Trajectory;
 
 const PEOPLE: [&str; 3] = ["adult-a", "adult-b", "adult-c"];
 
-fn week(seed: u64) -> (Engine, Vec<(String, f64, f64, f64)>) {
+/// Every 15 minutes, per person: (who, cortisol nmol/L, core C, glucose mg/dL, water deficit L).
+type Sample = (String, f64, f64, f64, f64);
+
+fn week(seed: u64) -> (Engine, Vec<Sample>) {
     let mut r = Registry::new();
     register_body(&mut r);
     register_people(&mut r);
@@ -27,6 +31,11 @@ fn week(seed: u64) -> (Engine, Vec<(String, f64, f64, f64)>) {
             for h in [7.0, 11.0, 15.0, 19.0, 23.0] {
                 e.inject(EV_VOID, id, Payload::none(), Some(SimTime::ZERO + Span::days(d) + Span::secs(h as i64 * 3600))).unwrap();
             }
+            // about 2 L a day (without it the deficit nears its 8 L bound by the end of the week)
+            for h in [8, 10, 12, 14, 16, 18, 20, 22] {
+                let drink = DrinkPayload { by: id, volume_l: 0.25 };
+                e.inject("drink", id, Payload::of(&drink), Some(SimTime::ZERO + Span::days(d) + Span::secs(h * 3600))).unwrap();
+            }
         }
     }
     let mut samples = Vec::new();
@@ -38,7 +47,8 @@ fn week(seed: u64) -> (Engine, Vec<(String, f64, f64, f64)>) {
             let c = cortisol_nmol(&e.world, e.world.get::<Cortisol>(id).unwrap(), t);
             let core = e.world.get::<Thermo>(id).unwrap().state.state_at(t)[1];
             let g = e.world.get::<Glucose>(id).unwrap().g.at(t);
-            samples.push((name.to_string(), c, core, g));
+            let water = e.world.get::<Hydration>(id).unwrap().deficit_l.at(t);
+            samples.push((name.to_string(), c, core, g, water));
         }
         t += Span::secs(900);
     }
@@ -55,7 +65,8 @@ fn a_week_is_deterministic_and_physiological() {
     // froze digestion and re-absorbed the same meal over and over), so a week must refuse nothing.
     let c = &a.counters;
     assert_eq!((c.rejected, c.undeclared_schedules, c.unknown_schedules), (0, 0, 0), "refused writes or schedules: {c:?}");
-    for (who, c, core, g) in &sa {
+    for (who, c, core, g, water) in &sa {
+        assert!((-1.0..=1.0).contains(water), "{who}: water deficit {water:.2} L in an ordinary week");
         assert!((36.0..=37.6).contains(core), "{who}: core {core:.2} C outside the normal daily range");
         assert!((60.0..=220.0).contains(g), "{who}: glucose {g:.0} mg/dL implausible");
         assert!((50.0..=900.0).contains(c), "{who}: cortisol {c:.0} nmol/L implausible");
