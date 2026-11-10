@@ -3,13 +3,15 @@
 //!     cargo run --release --example day -- [days] [seed] > day.csv
 //!
 //! Each adult gets breakfast at 07:30, lunch at 12:30 and dinner at 19:00 (mixed solid meals), so glucose has
-//! something to answer, and goes to the toilet at 07, 11, 15, 19 and 23 h (and whenever the bladder or bowel
-//! presses). Everything else (sleep, waking, the cortisol awakening response, core temperature) comes from the
+//! something to answer, goes to the toilet at 07, 11, 15, 19 and 23 h (and whenever the bladder or bowel
+//! presses), and drinks 250 mL every two hours from 08 to 22 h, so a run of more than a week does not dry out
+//! (the refused writes go to stderr, and stay 0). Everything else (sleep, waking, the cortisol awakening response, core temperature) comes from the
 //! models.
 use bodysim::cortisol::{cortisol_nmol, Cortisol};
 use bodysim::digestion::{Eat, MealKind, EV_EAT};
 use bodysim::glucose::Glucose;
 use bodysim::hydration::EV_VOID;
+use bodysim::DrinkPayload;
 use bodysim::thermo::Thermo;
 use bodysim::{register_body, register_people};
 use bodysim_core::prelude::*;
@@ -41,6 +43,10 @@ fn main() {
                 let at = SimTime::ZERO + Span::days(d) + Span::secs((h * 3600.0) as i64);
                 e.inject(EV_VOID, id, Payload::none(), Some(at)).expect("void");
             }
+            for h in [8, 10, 12, 14, 16, 18, 20, 22] {
+                let drink = DrinkPayload { by: id, volume_l: 0.25 };
+                e.inject("drink", id, Payload::of(&drink), Some(SimTime::ZERO + Span::days(d) + Span::secs(h * 3600))).expect("drink");
+            }
         }
     }
 
@@ -58,4 +64,5 @@ fn main() {
         }
         t += Span::secs(600);
     }
+    eprintln!("refused writes: {}", e.counters.rejected);
 }
