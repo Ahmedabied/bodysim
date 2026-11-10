@@ -95,9 +95,13 @@ impl Plugin for DigestionPlugin {
 pub fn gastric_g(d: &Digestion, t: SimTime) -> f64 { d.meals.iter().map(|m| m.in_stomach_g(t)).sum() }
 /// Hunger drive ∈ [0, ~1]: ghrelin above baseline minus the fullness term.
 pub fn hunger(w: &World, d: &Digestion, t: SimTime) -> f64 {
+    hunger_with(d, t, w.k("body.digestion.gastric_max_ml"), w.k("body.digestion.fullness_weight"))
+}
+/// `hunger` with its two constants already looked up: a crossing search asks it over a hundred times.
+fn hunger_with(d: &Digestion, t: SimTime, gastric_max_ml: f64, fullness_weight: f64) -> f64 {
     let g = d.ghrelin.at(t);
-    let full = gastric_g(d, t) / w.k("body.digestion.gastric_max_ml");
-    (g - w.k("body.digestion.fullness_weight") * full).max(0.0)
+    let full = gastric_g(d, t) / gastric_max_ml;
+    (g - fullness_weight * full).max(0.0)
 }
 
 fn tod_hours(w: &World, t: SimTime) -> f64 { crate::circadian::tod_hours(w, t) }
@@ -196,13 +200,12 @@ fn gut(w: &World, ev: &Event, ctx: &mut Ctx) -> Out {
     out.cancel_pending_why(e, EV_INTERO, WHY_HUNGER);
     schedule_band_change(&mut out, now, &d.colon_ml, d.bowel_band, Sense::Bowel, bn, bp, bu, e, WHY_BOWEL);
     {
-        let dd = d.clone();
-        let cur = hunger(w, &dd, now);
-        let rising = dd.ghrelin.limit() > dd.ghrelin.at(now) || !dd.meals.is_empty();
+        let rising = d.ghrelin.limit() > d.ghrelin.at(now) || !d.meals.is_empty();
         let target = if rising { hb.next_threshold(hn, hp, hu) } else { hb.prev_threshold(hn, hp, hu) };
         if let Some(tg) = target {
             let sign = if rising { 1.0 } else { -1.0 };
-            let f = |s: f64| sign * (hunger(w, &dd, now + Span::from_secs_f64(s)) - tg);
+            let (gmax, fw) = (w.k("body.digestion.gastric_max_ml"), w.k("body.digestion.fullness_weight"));
+            let f = |s: f64| sign * (hunger_with(&d, now + Span::from_secs_f64(s), gmax, fw) - tg);
             if f(0.0) < 0.0 {
                 if let Some(s) = first_crossing_scan(f, 8.0 * 3600.0, 96) {
                     let band_then = if rising { Band::of(tg, hn, hp, hu) } else { Band::of(tg - 1e-3, hn, hp, hu) };
@@ -210,7 +213,6 @@ fn gut(w: &World, ev: &Event, ctx: &mut Ctx) -> Out {
                 }
             }
         }
-        let _ = cur;
     }
     out.set(e, d);
     out

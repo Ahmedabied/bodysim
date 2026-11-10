@@ -18,7 +18,7 @@ cargo test                                             # 27 tests, about 7 s aft
 ```
 
 From a fresh clone to the plot took 15.3 s here, the first build included (400 MB peak memory).
-After that a simulated day of three adults takes about 18 ms.
+After that a simulated day of three adults takes about 16 ms.
 
 ## How it works
 
@@ -58,10 +58,10 @@ day, Intel i5-14400F:
 
 | run length | simulated days per second | events per second |
 |---|---|---|
-| 30 days | 74 | 95,300 |
-| 365 days | 74 | 95,800 (471,998 events in 4.9 s) |
+| 30 days | 97 | 126,000 |
+| 365 days | 99 | 127,800 (471,998 events in 3.7 s) |
 
-Two things made it this fast, and neither changed a single bit of the result (same events, same state hash, the
+Three things made it this fast, and none changed a single bit of the result (same events, same state hash, the
 day's CSV identical byte for byte):
 
 - **A year used to cost five times more per day than a month** (4.9 days per second): the bench schedules every
@@ -71,6 +71,8 @@ day's CSV identical byte for byte):
   sixteen thresholds will be crossed, and it sampled the same trajectory again for every one of them. It is
   sampled once for all sixteen now, and only the thresholds crossed in the earliest interval are solved exactly.
   A year went from 15.6 s to 4.9 s. A test checks 400 generated cases against asking one threshold at a time.
+- **Constants are looked up by name, and a crossing search asks its question over a hundred times.** The hunger
+  search looked up the same two constants on every one of them. Looked up once, a year takes 3.7 s.
 
 ## Limits
 
