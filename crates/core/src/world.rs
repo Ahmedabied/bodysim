@@ -67,15 +67,22 @@ pub struct World {
     pub(crate) current_system: Cell<Option<u16>>,
     pub(crate) system_reads: Vec<Signature>,
     pub(crate) system_consts: Vec<Vec<&'static str>>,
+    /// the same lists as bits over constant rows, so the declared check is one bit test, not a list walk
+    system_const_rows: Vec<Vec<u64>>,
     pub(crate) undeclared_reads: RefCell<IndexMap<(u16, u16), u64>>,
     pub(crate) undeclared_consts: RefCell<IndexMap<(u16, String), u64>>,
-    pub(crate) consts_read: RefCell<IndexMap<String, u64>>,
+    consts_read: RefCell<ConstReads>,
     pub(crate) label_kind: ComponentKind,
 }
 
 impl World {
     pub(crate) fn new(kinds: Kinds, stores: Vec<Box<dyn AnyStore>>, consts: Constants, protos: IndexMap<String, LoadedProto>, system_reads: Vec<Signature>, system_consts: Vec<Vec<&'static str>>) -> World {
         let label_kind = kinds.component(Label::NAME).expect("label registered by core");
+        let system_const_rows = system_consts.iter().map(|names| {
+            let mut bits = vec![0u64; consts.rows.len().div_ceil(64)];
+            for n in names { if let Some(i) = consts.rows.get_index_of(*n) { bits[i / 64] |= 1 << (i % 64); } }
+            bits
+        }).collect();
         World {
             now: SimTime::ZERO,
             laws: std::collections::BTreeMap::new(),
@@ -89,10 +96,11 @@ impl World {
             names: IndexMap::new(),
             current_system: Cell::new(None),
             system_reads,
+            system_const_rows,
             system_consts,
             undeclared_reads: RefCell::new(IndexMap::new()),
             undeclared_consts: RefCell::new(IndexMap::new()),
-            consts_read: RefCell::new(IndexMap::new()),
+            consts_read: RefCell::new(ConstReads::default()),
             label_kind,
         }
     }
@@ -161,20 +169,22 @@ impl World {
 
     /// A constant by full name (`plugin.name`). Missing ⇒ panic: `finalize` verified every declared
     /// constant; an undeclared read is counted as a defect and still answered if the row exists.
+    ///
+    /// One hash lookup finds the row; the declared check and the read count then go by its index.
     pub fn k(&self, name: &str) -> f64 {
+        let row = self.consts.rows.get_full(name);
         if let Some(s) = self.current_system.get() {
-            if !self.system_consts[s as usize].contains(&name) {
-                *self.undeclared_consts.borrow_mut().entry((s, name.to_string())).or_insert(0) += 1;
-            }
+            let declared = match row {
+                Some((i, _, _)) if self.system_const_rows[s as usize].get(i / 64).is_some_and(|w| w & (1 << (i % 64)) != 0) => true,
+                // a row added after the world was built has no bit yet: ask the list
+                _ => self.system_consts[s as usize].contains(&name),
+            };
+            if !declared { *self.undeclared_consts.borrow_mut().entry((s, name.to_string())).or_insert(0) += 1; }
         }
-        {
-            // count the read without a new String each time: only a constant's first read allocates its name
-            let mut read = self.consts_read.borrow_mut();
-            match read.get_mut(name) { Some(n) => *n += 1, None => { read.insert(name.to_string(), 1); } }
-        }
+        self.consts_read.borrow_mut().count(row.map(|(i, _, _)| i), name);
         if let Some(v) = self.laws.get(name) { return *v; }
-        match self.consts.value(name) {
-            Some(v) => v,
+        match row {
+            Some((_, _, r)) => r.value,
             None => panic!("constant {name} is not in content (declare it in a constants RON with unit, source and status)"),
         }
     }
@@ -246,6 +256,28 @@ impl World {
     }
     pub fn undeclared_reads(&self) -> Vec<((u16, u16), u64)> { self.undeclared_reads.borrow().iter().map(|(k, v)| (*k, *v)).collect() }
     pub fn undeclared_consts(&self) -> Vec<((u16, String), u64)> { self.undeclared_consts.borrow().iter().map(|(k, v)| (k.clone(), *v)).collect() }
-    pub fn consts_read(&self) -> Vec<(String, u64)> { self.consts_read.borrow().iter().map(|(k, v)| (k.clone(), *v)).collect() }
+    /// Reads per constant, in first-read order (names with no row, read just before their panic or set only by a
+    /// law, come last).
+    pub fn consts_read(&self) -> Vec<(String, u64)> {
+        let r = self.consts_read.borrow();
+        r.first_read.iter().map(|i| (self.consts.rows.get_index(*i as usize).map(|(k, _)| k.clone()).unwrap_or_default(), r.by_row[*i as usize]))
+            .chain(r.other.iter().map(|(k, v)| (k.clone(), *v))).collect()
+    }
     pub fn stores_len(&self) -> usize { self.stores.len() }
+}
+
+/// How often each constant was read: by row index, so counting a read allocates nothing and hashes nothing.
+#[derive(Default)]
+struct ConstReads { by_row: Vec<u64>, first_read: Vec<u32>, other: IndexMap<String, u64> }
+impl ConstReads {
+    fn count(&mut self, row: Option<usize>, name: &str) {
+        match row {
+            Some(i) => {
+                if i >= self.by_row.len() { self.by_row.resize(i + 1, 0); }
+                if self.by_row[i] == 0 { self.first_read.push(i as u32); }
+                self.by_row[i] += 1;
+            }
+            None => match self.other.get_mut(name) { Some(n) => *n += 1, None => { self.other.insert(name.to_string(), 1); } },
+        }
+    }
 }

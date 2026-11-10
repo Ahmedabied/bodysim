@@ -14,7 +14,7 @@ Rust 1.85 or newer (CI builds and tests on 1.85 and on stable). Clone this repos
 ```sh
 cargo run --release --example day -- 2 > day.csv       # two days of three example adults, every 10 minutes
 python3 scripts/plot_day.py day.csv day.svg            # the picture above (standard library only)
-cargo test                                             # 36 tests, about 7 s after the build
+cargo test                                             # 37 tests, about 7 s after the build
 ```
 
 From a fresh clone to the plot took 15.3 s here, the first build included (400 MB peak memory).
@@ -58,10 +58,10 @@ day, Intel i5-14400F:
 
 | run length | simulated days per second | events per second |
 |---|---|---|
-| 30 days | 97 | 126,000 |
-| 365 days | 99 | 127,800 (471,998 events in 3.7 s) |
+| 30 days | 114 | 148,000 |
+| 365 days | 118 | 152,500 (471,998 events in 3.1 s, the median of 8 runs) |
 
-Three things made it this fast, and none changed a single bit of the result (same events, same state hash, the
+Four things made it this fast, and none changed a single bit of the result (same events, same state hash, the
 day's CSV identical byte for byte):
 
 - **A year used to cost five times more per day than a month** (4.9 days per second): the bench schedules every
@@ -72,7 +72,11 @@ day's CSV identical byte for byte):
   sampled once for all sixteen now, and only the thresholds crossed in the earliest interval are solved exactly.
   A year went from 15.6 s to 4.9 s. A test checks 400 generated cases against asking one threshold at a time.
 - **Constants are looked up by name, and a crossing search asks its question over a hundred times.** The hunger
-  search looked up the same two constants on every one of them. Looked up once, a year takes 3.7 s.
+  search looked up the same two constants on every one of them. Looked up once, a year took 3.7 s.
+- **Every constant read also walked the system's list of declared constants** and counted itself in a map keyed
+  by the name. One lookup now finds the row, and the check and the count go by its index. A year went from 3.54 s
+  to 3.17 s (the medians of five runs, each run alternating with the old binary). A test pins the read counts and
+  the undeclared read they report.
 
 ## Limits
 
