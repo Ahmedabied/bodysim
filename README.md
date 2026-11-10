@@ -94,8 +94,12 @@ day's CSV identical byte for byte):
 - **Core temperature follows sleep more than the clock.** It falls through the night to its low at waking and then
   sits near 36.9 C with a small sawtooth; the usual low is around 04:00 to 06:00. The room is held at 27 C because
   there is no bedding yet; at 21 C a lightly clothed sleeper would get far too cold.
-- **Cortisol's evening low is too high** (about 280 nmol/L at 20:00; real values fall much lower by midnight). The
-  awakening peak (637 nmol/L about 30 minutes after waking) is in the normal range.
+- **Cortisol's evening low is too high** (about 280 nmol/L at 20:00). In 33 healthy adults sampled every 20
+  minutes for 24 h (Debono et al. 2009, J Clin Endocrinol Metab 94:1548-1554), serum cortisol has a mesor of
+  143.6 nmol/L, peaks at 08:32 and falls below 55 nmol/L at 00:18; the model's baseline is one cosine with a mesor
+  of 400. They fit two harmonics, and with the measured mesor one cosine that reaches the morning peak goes below
+  zero in the evening. The awakening peak is too high as well: 637 nmol/L about 30 minutes after waking, against
+  their 95% reference range for the peak of 323 to 569 nmol/L (11.7 to 20.6 ug/dL).
 - **Not medical software.** It is a model for simulations and games, not for diagnosis or dosing.
 
 ## Layout
