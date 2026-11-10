@@ -167,7 +167,11 @@ impl World {
                 *self.undeclared_consts.borrow_mut().entry((s, name.to_string())).or_insert(0) += 1;
             }
         }
-        *self.consts_read.borrow_mut().entry(name.to_string()).or_insert(0) += 1;
+        {
+            // count the read without a new String each time: only a constant's first read allocates its name
+            let mut read = self.consts_read.borrow_mut();
+            match read.get_mut(name) { Some(n) => *n += 1, None => { read.insert(name.to_string(), 1); } }
+        }
         if let Some(v) = self.laws.get(name) { return *v; }
         match self.consts.value(name) {
             Some(v) => v,
