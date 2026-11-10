@@ -2,6 +2,7 @@
 name = "bodysim-core"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 description = "Discrete-event simulation substrate: world, components, rules, relations, replayable log."
 
 [lib]

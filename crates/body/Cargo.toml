@@ -2,6 +2,7 @@
 name = "bodysim"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 description = "Human physiology as closed-form models advanced on band-crossing events."
 
 [lib]

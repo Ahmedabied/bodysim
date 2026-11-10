@@ -181,19 +181,13 @@ fn thermoreg(w: &World, ev: &Event, ctx: &mut Ctx) -> Out {
     // when must this segment end? whichever comes first: skin drift, core drift, the span bound,
     // or the next thermal band boundary - every one solved on the closed form.
     let horizon = Span::from_secs_f64(w.k("body.thermo.reanchor_max_span_s"));
-    let mut next = now + horizon;
-    let mut consider = |reach: Reach| { if let Reach::At(t) = reach { if t > now && t < next { next = t; } } };
     let (dsk, dcr) = (w.k("body.thermo.reanchor_dtsk_c"), w.k("body.thermo.reanchor_dtcr_c"));
-    consider(seg.reach_of(0, tsk + dsk, true, horizon));
-    consider(seg.reach_of(0, tsk - dsk, false, horizon));
-    consider(seg.reach_of(1, tcr + dcr, true, horizon));
-    consider(seg.reach_of(1, tcr - dcr, false, horizon));
+    let mut asks = vec![(0, tsk + dsk, true), (0, tsk - dsk, false), (1, tcr + dcr, true), (1, tcr - dcr, false)];
     for thr in [n, p, u] {
-        consider(seg.reach_of(0, tskn + thr, true, horizon));
-        consider(seg.reach_of(0, tskn + thr, false, horizon));
-        consider(seg.reach_of(0, tskn - thr, true, horizon));
-        consider(seg.reach_of(0, tskn - thr, false, horizon));
+        asks.extend([(0, tskn + thr, true), (0, tskn + thr, false), (0, tskn - thr, true), (0, tskn - thr, false)]);
     }
+    // sixteen thresholds on one trajectory: sampled once for all of them (this handler was three quarters of a run)
+    let next = seg.first_reach(&asks, horizon).unwrap_or(now + horizon);
     out.cancel_pending(e, EV_SEGMENT);
     out.schedule_at(next.max(now + Span::secs(1)), EV_SEGMENT, e, WHY_SEGMENT);
     out.set(e, Thermo { state: seg, skbf: reg.skbf, sweat_g_per_s, hot_band: hot, cold_band: cold });

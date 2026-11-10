@@ -9,16 +9,16 @@ no fixed time step, a year is cheap, and the same seed always gives the same bod
 
 ## Run it in under a minute
 
-Rust 1.85 or newer. Clone this repository, then from its folder:
+Rust 1.85 or newer (CI builds and tests on 1.85 and on stable). Clone this repository, then from its folder:
 
 ```sh
 cargo run --release --example day -- 2 > day.csv       # two days of three example adults, every 10 minutes
 python3 scripts/plot_day.py day.csv day.svg            # the picture above (standard library only)
-cargo test                                             # 22 tests, about 3 s after the build
+cargo test                                             # 27 tests, about 7 s after the build
 ```
 
 From a fresh clone to the plot took 15.3 s here, the first build included (400 MB peak memory).
-After that a simulated day of three adults takes about 43 ms.
+After that a simulated day of three adults takes about 18 ms.
 
 ## How it works
 
@@ -28,6 +28,8 @@ After that a simulated day of three adults takes about 43 ms.
   the time it will cross the next band (thirst "pressing", bladder "urgent") is solved for directly and scheduled.
 - **Deterministic and replayable.** One seeded, keyed random stream; no wall clock and no unordered maps inside the
   simulation (enforced by `clippy.toml`); every applied change goes to a log that replays to the same state hash.
+  A replay passes only if every checkpoint in the log was reached and matched: one that runs out of events before
+  the log does is a failure, not a short pass.
 - **Constants carry their source.** The 138 body constants live in `content/constants/body/*.ron`, each with a
   unit, a range, what it varies with, a source and a status: 73 Verified, 49 Tunable (chosen to make the model
   behave, with the reason), 9 Unverified, 7 Contested (sources disagree). The labels are the author's; anyone can
@@ -56,12 +58,19 @@ day, Intel i5-14400F:
 
 | run length | simulated days per second | events per second |
 |---|---|---|
-| 30 days | 23.4 | 30,331 |
-| 365 days | 23.0 | 29,713 (471,998 events in 15.9 s) |
+| 30 days | 74 | 95,300 |
+| 365 days | 74 | 95,800 (471,998 events in 4.9 s) |
 
-A year used to cost five times more per day than a month (4.9 days per second): the bench schedules every meal
-of the run up front, and cancelling one kind of pending event walked all of a person's thousands of future events.
-The event list now keeps an index per person and kind; the state hash is unchanged.
+Two things made it this fast, and neither changed a single bit of the result (same events, same state hash, the
+day's CSV identical byte for byte):
+
+- **A year used to cost five times more per day than a month** (4.9 days per second): the bench schedules every
+  meal of the run up front, and cancelling one kind of pending event walked all of a person's thousands of future
+  events. The event list now keeps an index per person and kind.
+- **The thermal model was 76% of a run.** Each time a body's temperature segment ends, it asks when the next of
+  sixteen thresholds will be crossed, and it sampled the same trajectory again for every one of them. It is
+  sampled once for all sixteen now, and only the thresholds crossed in the earliest interval are solved exactly.
+  A year went from 15.6 s to 4.9 s. A test checks 400 generated cases against asking one threshold at a time.
 
 ## Limits
 

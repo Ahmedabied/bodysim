@@ -223,23 +223,63 @@ impl Expm2 {
         let s = (t - self.t0).as_secs_f64();
         let m = Self::expm(self.a, s);
         let hom = Self::mul(m, self.x0);
-        let det = self.a[0][0] * self.a[1][1] - self.a[0][1] * self.a[1][0];
-        let part = if det.abs() > 1e-300 {
+        let part = match Self::det_if_invertible(self.a) {
             // A⁻¹ (e^{As} − I) u
-            let inv = [[self.a[1][1] / det, -self.a[0][1] / det], [-self.a[1][0] / det, self.a[0][0] / det]];
-            let mi = [[m[0][0] - 1.0, m[0][1]], [m[1][0], m[1][1] - 1.0]];
-            Self::mul(inv, Self::mul(mi, self.u))
-        } else {
-            let au = Self::mul(self.a, self.u);
-            [s * self.u[0] + 0.5 * s * s * au[0], s * self.u[1] + 0.5 * s * s * au[1]]
+            Some(det) => {
+                let inv = [[self.a[1][1] / det, -self.a[0][1] / det], [-self.a[1][0] / det, self.a[0][0] / det]];
+                let mi = [[m[0][0] - 1.0, m[0][1]], [m[1][0], m[1][1] - 1.0]];
+                Self::mul(inv, Self::mul(mi, self.u))
+            }
+            // No inverse to lean on (two bodies that only exchange with each other lose nothing, so A is singular):
+            // (∫₀ˢ e^{Aτ} dτ) u, which exists for every A.
+            None => Self::mul(Self::integral(self.a, s), self.u),
         };
         [hom[0] + part[0], hom[1] + part[1]]
+    }
+    /// det A when A can be inverted without losing the answer to rounding: the determinant must not be a
+    /// difference of two products that nearly cancel.
+    fn det_if_invertible(a: [[f64; 2]; 2]) -> Option<f64> {
+        let (p, q) = (a[0][0] * a[1][1], a[0][1] * a[1][0]);
+        let det = p - q;
+        if det.abs() > 1e-9 * (p.abs() + q.abs()) && det.abs() > 1e-300 { Some(det) } else { None }
+    }
+    /// ∫₀ˢ e^{Aτ} dτ in closed form, by the same decomposition as `expm`. Needs no inverse, so it is exact for a
+    /// singular A too (an eigenvalue of 0 contributes `s`, not `(e^{0·s} − 1) / 0`).
+    pub fn integral(a: [[f64; 2]; 2], s: f64) -> [[f64; 2]; 2] {
+        let tr = a[0][0] + a[1][1];
+        let det = a[0][0] * a[1][1] - a[0][1] * a[1][0];
+        let alpha = tr / 2.0;
+        let delta = alpha * alpha - det;
+        let sub = |m: [[f64; 2]; 2], l: f64| [[m[0][0] - l, m[0][1]], [m[1][0], m[1][1] - l]];
+        let scale = |m: [[f64; 2]; 2], k: f64| [[m[0][0] * k, m[0][1] * k], [m[1][0] * k, m[1][1] * k]];
+        let add = |p: [[f64; 2]; 2], q: [[f64; 2]; 2]| [[p[0][0] + q[0][0], p[0][1] + q[0][1]], [p[1][0] + q[1][0], p[1][1] + q[1][1]]];
+        // ∫₀ˢ e^{lτ} dτ = (e^{ls} − 1) / l, and s as l goes to 0
+        let phi = |l: f64| if (l * s).abs() < 1e-8 { s * (1.0 + 0.5 * l * s) } else { (l * s).exp_m1() / l };
+        if delta > 1e-18 {
+            let w = delta.sqrt();
+            let (l1, l2) = (alpha + w, alpha - w);
+            scale(add(scale(sub(a, l2), phi(l1)), scale(sub(a, l1), -phi(l2))), 1.0 / (l1 - l2))
+        } else if delta < -1e-18 {
+            // ∫ e^{ατ} cos(wτ) and ∫ e^{ατ} sin(wτ) / w; here α² + w² = det > 0
+            let w = (-delta).sqrt();
+            let d = alpha * alpha + w * w;
+            let e = (alpha * s).exp();
+            let (c, sn) = ((w * s).cos(), (w * s).sin());
+            let (ci, si) = if d * s * s < 1e-12 { (s, 0.5 * s * s) } else { ((e * (alpha * c + w * sn) - alpha) / d, (e * (alpha * sn - w * c) + w) / (d * w)) };
+            let id = [[ci, 0.0], [0.0, ci]];
+            add(id, scale(sub(a, alpha), si))
+        } else {
+            // repeated eigenvalue α: ∫ e^{ατ} and ∫ τ e^{ατ}
+            let x = alpha * s;
+            let e1 = if x.abs() < 1e-4 { 0.5 * s * s * (1.0 + 2.0 * x / 3.0) } else { (x.exp() * (x - 1.0) + 1.0) / (alpha * alpha) };
+            let e0 = phi(alpha);
+            add([[e0, 0.0], [0.0, e0]], scale(sub(a, alpha), e1))
+        }
     }
     pub fn at_i(&self, i: usize, t: SimTime) -> f64 { self.state_at(t)[i] }
     /// Equilibrium `−A⁻¹ u`, if A is invertible.
     pub fn equilibrium(&self) -> Option<[f64; 2]> {
-        let det = self.a[0][0] * self.a[1][1] - self.a[0][1] * self.a[1][0];
-        if det.abs() < 1e-300 { return None; }
+        let det = Self::det_if_invertible(self.a)?;
         let inv = [[self.a[1][1] / det, -self.a[0][1] / det], [-self.a[1][0] / det, self.a[0][0] / det]];
         let v = Self::mul(inv, self.u);
         Some([-v[0], -v[1]])
@@ -255,6 +295,42 @@ impl Expm2 {
             Some(s) => Reach::At(self.t0 + Span::from_secs_f64(s)),
             None => Reach::Never { x_inf: eq.unwrap_or(f64::NAN) },
         }
+    }
+    /// The soonest time, after `t0` and before `t0 + horizon`, at which any of `asks` is reached; each ask is
+    /// (component, threshold, up) as in `reach_of`. The answer is the one `reach_of` gives when asked one by one,
+    /// to the nanosecond, but the trajectory is sampled once for all the asks instead of once per ask, and only
+    /// the asks that cross in the earliest interval are bisected: nothing later can come sooner.
+    pub fn first_reach(&self, asks: &[(usize, f64, bool)], horizon: Span) -> Option<SimTime> {
+        const N: u32 = 256; // the scan `reach_of` does
+        let step = horizon.as_secs_f64() / N as f64;
+        let samples: Vec<[f64; 2]> = (0..=N).map(|k| self.state_at(self.t0 + Span::from_secs_f64(step * k as f64))).collect();
+        // for each ask that is not already met: the first interval (k−1, k] in which it changes sign
+        let mut crossings: Vec<(u32, usize)> = Vec::new();
+        for (ai, &(i, x, up)) in asks.iter().enumerate() {
+            let sign = if up { 1.0 } else { -1.0 };
+            let f = |k: u32| sign * (samples[k as usize][i] - x);
+            let mut fprev = f(0);
+            if fprev >= 0.0 { continue; }
+            for k in 1..=N {
+                let fs = f(k);
+                if (fs < 0.0) != (fprev < 0.0) || fs == 0.0 { crossings.push((k, ai)); break; }
+                fprev = fs;
+            }
+        }
+        crossings.sort_unstable();
+        let end = self.t0 + horizon;
+        let mut best: Option<SimTime> = None;
+        let mut interval = 0;
+        for (k, ai) in crossings {
+            if best.is_some() && k != interval { break; }
+            interval = k;
+            let (i, x, up) = asks[ai];
+            let sign = if up { 1.0 } else { -1.0 };
+            let f = |s: f64| sign * (self.at_i(i, self.t0 + Span::from_secs_f64(s)) - x);
+            let t = self.t0 + Span::from_secs_f64(bisect(f, step * (k - 1) as f64, step * k as f64, 80));
+            if t > self.t0 && t < end && best.is_none_or(|b| t < b) { best = Some(t); }
+        }
+        best
     }
 }
 
@@ -279,7 +355,8 @@ impl PiecewiseLinear {
 impl Trajectory for PiecewiseLinear {
     fn at(&self, t: SimTime) -> f64 {
         if self.pts.is_empty() { return 0.0; }
-        let s = (t - self.t0).as_secs_f64();
+        // saturating: `crossing` asks for the value at the beginning of time, which is before any t0
+        let s = Span(t.0.saturating_sub(self.t0.0)).as_secs_f64();
         if s <= self.pts[0].0 { return self.pts[0].1; }
         for w in self.pts.windows(2) {
             let ((s0, v0), (s1, v1)) = (w[0], w[1]);
@@ -388,5 +465,101 @@ mod tests {
         if let Reach::At(tc) = c.reach_of(0, 70.0, false, Span::hours(1)) { assert!((c.at_i(0, tc) - 70.0).abs() < 1e-6) } else { panic!() }
         assert!(matches!(c.reach_of(0, 60.0, false, Span::hours(1)), Reach::Never { .. }), "80→65.7 never reaches 60");
         assert_eq!(c.reach_of(1, 25.0, true, Span::hours(1)), Reach::Already);
+    }
+
+    /// dx/dt = A x + u stepped with RK4: slow, and the yardstick for the closed forms.
+    fn rk4(a: [[f64; 2]; 2], u: [f64; 2], x0: [f64; 2], s: f64) -> [f64; 2] {
+        let n = 200_000;
+        let h = s / n as f64;
+        let f = |x: [f64; 2]| [a[0][0] * x[0] + a[0][1] * x[1] + u[0], a[1][0] * x[0] + a[1][1] * x[1] + u[1]];
+        let step = |x: [f64; 2], k: [f64; 2], c: f64| [x[0] + c * k[0], x[1] + c * k[1]];
+        let mut x = x0;
+        for _ in 0..n {
+            let k1 = f(x);
+            let k2 = f(step(x, k1, h / 2.0));
+            let k3 = f(step(x, k2, h / 2.0));
+            let k4 = f(step(x, k3, h));
+            x = [x[0] + h / 6.0 * (k1[0] + 2.0 * k2[0] + 2.0 * k3[0] + k4[0]), x[1] + h / 6.0 * (k1[1] + 2.0 * k2[1] + 2.0 * k3[1] + k4[1])];
+        }
+        x
+    }
+
+    #[test]
+    fn expm2_is_right_when_the_matrix_cannot_be_inverted() {
+        // A cup and a hand that only exchange heat with each other (nothing leaves, so det A = 0), and a heater on
+        // the cup. The forced part used to be a two-term series, right only while s is tiny.
+        type Case = ([[f64; 2]; 2], [f64; 2], [f64; 2], f64); // A, u, x0, seconds
+        let cases: [Case; 6] = [
+            ([[-0.02, 0.02], [0.05, -0.05]], [0.1, 0.0], [80.0, 30.0], 1000.0),  // singular, forced
+            ([[-0.02, 0.02], [0.05, -0.05]], [0.0, -0.03], [80.0, 30.0], 40.0),
+            ([[0.0, 0.0], [0.0, 0.0]], [0.5, -0.25], [1.0, 2.0], 300.0),           // nothing but the forcing
+            ([[0.0, 1.0], [0.0, 0.0]], [0.0, 0.001], [0.0, 0.0], 100.0),           // nilpotent: a double integrator
+            ([[-0.01, 0.0], [0.0, 0.0]], [0.2, 0.3], [5.0, 5.0], 500.0),           // one store leaks, one only fills
+            ([[-0.02, 0.02], [0.05, -0.05 - 1e-13]], [0.1, 0.0], [80.0, 30.0], 1000.0), // an inverse exists, and is useless
+        ];
+        for (a, u, x0, s) in cases {
+            let got = Expm2 { a, u, x0, t0: SimTime::ZERO }.state_at(t(s));
+            let want = rk4(a, u, x0, s);
+            for i in 0..2 {
+                assert!((got[i] - want[i]).abs() <= 1e-6 * want[i].abs().max(1.0), "A = {a:?}, u = {u:?}, s = {s}: got {got:?}, want {want:?}");
+            }
+        }
+        assert_eq!(Expm2 { a: [[-0.02, 0.02], [0.05, -0.05 - 1e-13]], u: [0.1, 0.0], x0: [0.0, 0.0], t0: SimTime::ZERO }.equilibrium(), None,
+                   "no equilibrium is better than one made of rounding error");
+    }
+
+    #[test]
+    fn the_integral_agrees_with_the_inverse_where_both_work() {
+        // real and distinct, complex, and repeated eigenvalues
+        for a in [[[-0.004, 0.003], [0.0005, -0.0005]], [[-0.01, 0.05], [-0.05, -0.01]], [[-0.02, 0.0], [0.0, -0.02]], [[-0.02, 0.01], [0.0, -0.02]]] {
+            for s in [0.001, 1.0, 60.0, 3600.0] {
+                let (u, zero) = ([0.7, -0.2], [0.0, 0.0]);
+                let by_inverse = Expm2 { a, u, x0: zero, t0: SimTime::ZERO }.state_at(t(s));
+                let by_integral = Expm2::mul(Expm2::integral(a, s), u);
+                for i in 0..2 {
+                    assert!((by_inverse[i] - by_integral[i]).abs() <= 1e-9 * by_inverse[i].abs().max(1e-6), "A = {a:?}, s = {s}: {by_inverse:?} vs {by_integral:?}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn first_reach_is_reach_of_asked_one_by_one() {
+        // a small generator, so the test needs no dependency and draws the same cases every run
+        let mut seed = 0x2545_f491_4f6c_dd1du64;
+        let mut draw = |lo: f64, hi: f64| {
+            seed ^= seed << 13;
+            seed ^= seed >> 7;
+            seed ^= seed << 17;
+            lo + (hi - lo) * ((seed >> 11) as f64 / (1u64 << 53) as f64)
+        };
+        let horizon = Span::mins(30);
+        let (mut found, mut none) = (0, 0);
+        for case in 0..400 {
+            // two stores that exchange and leak, pushed from outside: the shape of the thermal model
+            let (k, leak, c0, c1) = (draw(0.0, 0.01), draw(0.0, 0.01), draw(0.2, 5.0), draw(0.2, 5.0));
+            let a = [[-(k + leak) * c0, k * c0], [k * c1, -k * c1]];
+            let seg = Expm2 { a, u: [draw(-0.02, 0.02), draw(-0.02, 0.02)], x0: [draw(30.0, 36.0), draw(36.0, 38.0)], t0: SimTime(draw(0.0, 1e15) as i64) };
+            // every fifth case: thresholds too far away to reach inside the horizon
+            let far = if case % 5 == 0 { 1000.0 } else { 0.0 };
+            let asks: Vec<(usize, f64, bool)> = (0..16).map(|n| { let up = n % 4 < 2; (n % 2, seg.x0[n % 2] + draw(-0.5, 0.5) + if up { far } else { -far }, up) }).collect();
+            let mut want: Option<SimTime> = None;
+            for &(i, x, up) in &asks {
+                if let Reach::At(tc) = seg.reach_of(i, x, up, horizon) {
+                    if tc > seg.t0 && tc < seg.t0 + horizon && want.is_none_or(|w| tc < w) { want = Some(tc); }
+                }
+            }
+            assert_eq!(seg.first_reach(&asks, horizon), want, "{seg:?} {asks:?}");
+            if want.is_some() { found += 1 } else { none += 1 }
+        }
+        assert!(found > 50 && none > 5, "the cases must cover both answers: {found} with a crossing, {none} without");
+    }
+
+    #[test]
+    fn a_timeline_knows_which_way_it_is_going() {
+        // `crossing` reads the start value at the beginning of time; with t0 after zero that subtraction overflowed
+        let line = PiecewiseLinear { t0: t(3600.0), pts: vec![(0.0, 10.0), (60.0, 4.0)] };
+        assert_eq!(line.crossing(7.0), Reach::At(t(3630.0)));
+        assert_eq!(line.at(SimTime(i64::MIN)), 10.0);
     }
 }

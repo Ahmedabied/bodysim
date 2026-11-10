@@ -290,7 +290,7 @@ impl Engine {
         }
         let handlers = self.dispatch[ev.kind.0 as usize].clone();
         for si in handlers { self.run_handler_into(si, &ev, &mut rep); }
-        if self.counters.events.is_multiple_of(self.checkpoint_every) { self.checkpoint(); }
+        if self.counters.events % self.checkpoint_every == 0 { self.checkpoint(); }
         Some(rep)
     }
 
@@ -386,7 +386,8 @@ impl Engine {
                 return Err(format!("external record at {target} events but the replay is already at {}", engine.counters.events));
             }
             while engine.counters.events < target {
-                if engine.step().is_none() { break 'marks; }
+                // nothing left to run and the log goes on: this is not the run the log recorded
+                if engine.step().is_none() { rep.short_of = Some(target); break 'marks; }
             }
             match m {
                 Record::External { at, kind, subject, payload, .. } => { engine.inject(kind, *subject, Payload(payload.clone()), Some(*at))?; }
@@ -738,11 +739,13 @@ pub struct ReplayReport {
     pub checked: u64,
     pub skipped: u64,
     pub mismatches: Vec<(u64, SimTime)>,
+    /// The event count of a checkpoint or injection the replay never reached: its event list ran dry first.
+    pub short_of: Option<u64>,
     pub final_events: u64,
     pub final_hash: [u8; 32],
     pub content_hash_matches: bool,
     pub engine: Option<Engine>,
 }
 impl ReplayReport {
-    pub fn ok(&self) -> bool { self.mismatches.is_empty() && self.content_hash_matches }
+    pub fn ok(&self) -> bool { self.mismatches.is_empty() && self.short_of.is_none() && self.content_hash_matches }
 }

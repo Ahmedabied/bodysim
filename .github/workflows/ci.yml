@@ -23,3 +23,14 @@ jobs:
         run: |
           cargo run --release --example day -- 2 > day.csv
           python3 scripts/plot_day.py day.csv day.svg
+
+  # The README and Cargo.toml say Rust 1.85. Prove it: stable alone would not notice a newer library call.
+  msrv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.85"
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test

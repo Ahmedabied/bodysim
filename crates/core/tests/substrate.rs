@@ -228,6 +228,21 @@ mod extra {
         }
         out
     }
+    /// A world that runs dry: ten ticks, then nothing is pending.
+    pub struct Countdown;
+    impl Plugin for Countdown {
+        fn name(&self) -> &'static str { "countdown" }
+        fn register(&self, r: &mut Registry) {
+            r.event("tick");
+            r.system(SystemDescriptor { name: "countdown", reads: &[], writes: &[], handles: &["init", "tick"], schedules: &["tick"], handler: countdown, ..Default::default() });
+        }
+    }
+    fn countdown(_: &World, ev: &Event, ctx: &mut Ctx) -> Out {
+        let mut out = Out::new();
+        let left = if ev.is("init") { 10u32 } else { ev.decode::<u32>().unwrap_or(0) };
+        if left > 0 { out.schedule_with(ctx.now + Span::mins(1), "tick", ev.subject, "countdown", &(left - 1)); }
+        out
+    }
     fn sloppy(w: &World, _ev: &Event, _ctx: &mut Ctx) -> Out {
         let mut out = Out::new();
         let g1 = w.find("g1").unwrap();
@@ -268,4 +283,26 @@ fn spawn_despawn_ownership_undeclared_read_and_invariants() {
     assert!(e.log.records().any(|r| matches!(r, Record::Invariant { .. })));
     // dropped: an event scheduled for the despawned child never runs
     assert_eq!(e.counters.same_instant_drops, 0);
+}
+
+#[test]
+fn a_replay_that_runs_dry_before_a_checkpoint_does_not_pass() {
+    let mut r = Registry::new();
+    r.add(&extra::Countdown);
+    let bp = r.finalize().unwrap_or_else(|d| panic!("{d:?}"));
+    let mut e = bp.build(3, LogWriter::memory(), 4).unwrap();
+    e.run_until(day());
+    assert!(e.fel.is_empty() && e.counters.events == 11, "{} events", e.counters.events);
+    let mut records = e.log.memory.clone();
+    let rep = Engine::replay(&bp, &records, LogWriter::discard()).unwrap();
+    assert!(rep.ok() && rep.checked == 2 && rep.short_of.is_none(), "checked {}", rep.checked);
+    // The same log with one more checkpoint, at an event count this world never reaches (a log cut from a longer
+    // run, or content that now ends sooner). Every checkpoint the replay did reach matches, and it used to pass.
+    let mut late = records.last().unwrap().clone();
+    late.record = Record::Checkpoint { at: day(), events: 16, hash: e.hash() };
+    records.push(late);
+    let rep = Engine::replay(&bp, &records, LogWriter::discard()).unwrap();
+    assert!(rep.mismatches.is_empty() && rep.checked == 2);
+    assert_eq!(rep.short_of, Some(16));
+    assert!(!rep.ok(), "the replay stopped at {} events, short of a checkpoint at 16", rep.final_events);
 }
