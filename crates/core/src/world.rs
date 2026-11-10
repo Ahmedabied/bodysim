@@ -203,10 +203,34 @@ impl World {
         self.signatures[i] = s;
     }
     pub(crate) fn store_mut(&mut self, k: ComponentKind) -> &mut dyn AnyStore { &mut *self.stores[k.0 as usize] }
+    // THE NAME TABLE: a name finds the live entity holding that label with the LOWEST id. One rule for spawn,
+    // despawn, rename and restore, so `find` answers the same while running and after an epoch (adoption looks
+    // scene entities up through it). Spawn order is not part of the state; the lowest id is.
     pub(crate) fn note_label(&mut self, e: EntityId, c: &dyn AnyComponent) {
-        if let Some(l) = c.as_any().downcast_ref::<Label>() { self.names.insert(l.name.clone(), e); }
+        if let Some(l) = c.as_any().downcast_ref::<Label>() { self.note_name(l.name.clone(), e); }
     }
-    pub(crate) fn forget_labels_of(&mut self, e: EntityId) { self.names.retain(|_, v| *v != e); }
+    fn note_name(&mut self, name: String, e: EntityId) {
+        match self.names.get(&name) {
+            Some(held) if *held < e && self.entities.alive(*held) => {}
+            _ => { self.names.insert(name, e); }
+        }
+    }
+    /// `e` no longer holds the labels it held (despawned, label removed or replaced): each name passes to
+    /// its next holder, if there is one.
+    pub(crate) fn forget_labels_of(&mut self, e: EntityId) {
+        let held: Vec<String> = self.names.iter().filter(|(_, v)| **v == e).map(|(k, _)| k.clone()).collect();
+        for name in held {
+            self.names.shift_remove(&name);
+            let next = self.stores[self.label_kind.0 as usize].as_any().downcast_ref::<SparseSet<Label>>()
+                .and_then(|st| st.iter().filter(|(x, l)| *x != e && l.name == name && self.entities.alive(*x)).map(|(x, _)| x).min());
+            if let Some(x) = next { self.names.insert(name, x); }
+        }
+    }
+    /// After `e`'s label was replaced: the old name passes on, the new one is noted.
+    pub(crate) fn relabel(&mut self, e: EntityId) {
+        self.forget_labels_of(e);
+        if let Some(name) = self.label(e).map(str::to_string) { self.note_name(name, e); }
+    }
     /// Signatures and the name table from what the stores hold (THE EPOCH, after a restore).
     pub(crate) fn rebuild_indexes(&mut self) {
         self.signatures.clear();
@@ -217,7 +241,8 @@ impl World {
         }
         let labels: Vec<(EntityId, String)> = self.stores[self.label_kind.0 as usize].as_any().downcast_ref::<SparseSet<Label>>()
             .map(|st| { let mut v: Vec<(EntityId, String)> = st.iter().map(|(e, l)| (e, l.name.clone())).collect(); v.sort(); v }).unwrap_or_default();
-        for (e, name) in labels { if self.entities.alive(e) { self.names.insert(name, e); } }
+        // ascending ids, first one kept: the lowest live id per name, as `note_name` keeps it
+        for (e, name) in labels { if self.entities.alive(e) { self.names.entry(name).or_insert(e); } }
     }
     pub fn undeclared_reads(&self) -> Vec<((u16, u16), u64)> { self.undeclared_reads.borrow().iter().map(|(k, v)| (*k, *v)).collect() }
     pub fn undeclared_consts(&self) -> Vec<((u16, String), u64)> { self.undeclared_consts.borrow().iter().map(|(k, v)| (k.clone(), *v)).collect() }

@@ -533,6 +533,7 @@ impl Engine {
                 let view = RuleView { entity, op: RuleOp::Set, component: Some(kind), changed: &changed, new: Some(&*c), sig_before: sig, sig_after: sig, by };
                 if let Err(v) = self.check_rules(&view) { return Verdict::Rejected(v); }
                 if let Err(e) = self.world.store_mut(kind).insert_any(entity, c, now) { return reject("engine", entity, Some(kn), None, Value::Unit, Value::Unit, e); }
+                if kind == self.world.label_kind { self.world.relabel(entity); }
                 self.after_fields(entity, kind, &changed, cause);
                 let fields = changed.iter().map(|ch| (self.world.kinds.field_name(kind, ch.field).to_string(), ch.old.clone(), ch.new.clone())).collect();
                 self.log.append(Record::Applied { event: cause, by: by_name, entity, change: ChangeRecord::Set { kind: kn.into(), fields } });
